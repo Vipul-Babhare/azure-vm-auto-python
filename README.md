@@ -1,0 +1,1 @@
+# azure-vm-auto-python

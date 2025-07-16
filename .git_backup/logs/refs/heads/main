@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 22fd553c6d1d8e01daa9f0daee50c37a024af1b8 Vipul Babhare <vipul.babhare@inspirext.com> 1752671729 +0530	commit (initial): Initial commit: Terraform + GitHub Actions for Azure VM
+22fd553c6d1d8e01daa9f0daee50c37a024af1b8 22fd553c6d1d8e01daa9f0daee50c37a024af1b8 Vipul Babhare <vipul.babhare@inspirext.com> 1752671740 +0530	Branch: renamed refs/heads/master to refs/heads/main
+22fd553c6d1d8e01daa9f0daee50c37a024af1b8 60b95031a2a8b5530024a6662b1f4f5931c54b04 Vipul Babhare <vipul.babhare@inspirext.com> 1752671879 +0530	pull origin main --allow-unrelated-histories: Merge made by the 'ort' strategy.
+60b95031a2a8b5530024a6662b1f4f5931c54b04 9a2a146094e7eadf1699e492708673d252318dc7 Vipul Babhare <vipul.babhare@inspirext.com> 1752673750 +0530	commit: 🚫 Removed .terraform folder and added .gitignore
