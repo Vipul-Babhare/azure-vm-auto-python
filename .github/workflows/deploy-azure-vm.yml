@@ -16,13 +16,13 @@ jobs:
       with:
         terraform_version: 1.6.6
 
-   
-
     - name: 📦 Terraform Init
       run: terraform init
 
     - name: 📌 Terraform Apply
       run: terraform apply -auto-approve
+      env:
+        TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
 
     - name: 🌍 Extract Public IP from Terraform
       id: ip

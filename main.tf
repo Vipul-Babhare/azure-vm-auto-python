@@ -4,6 +4,11 @@ provider "azurerm" {
   use_cli         = true
 }
 
+variable "ssh_public_key" {
+  type        = string
+  description = "SSH Public Key for the VM"
+}
+
 # Resource Group
 resource "azurerm_resource_group" "example" {
   name     = "test-vm-group"
@@ -88,7 +93,7 @@ resource "azurerm_linux_virtual_machine" "example" {
 
   admin_ssh_key {
     username   = "azureuser"
-    public_key = file("~/.ssh/id_rsa_azure.pub")
+    public_key = var.ssh_public_key
   }
 
   os_disk {
