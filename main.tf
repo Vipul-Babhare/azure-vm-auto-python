@@ -1,6 +1,6 @@
 provider "azurerm" {
   features {}
-  subscription_id = "ab16a6e7-fa55-4581-b4dd-5602b818cd8e" # your subscription
+  subscription_id = "ab16a6e7-fa55-4581-b4dd-5602b818cd8e"
   use_cli         = true
 }
 
@@ -9,13 +9,18 @@ variable "ssh_public_key" {
   description = "SSH Public Key for the VM"
 }
 
-# Resource Group
+# Random suffix to make DNS globally unique
+resource "random_string" "suffix" {
+  length  = 6
+  upper   = false
+  special = false
+}
+
 resource "azurerm_resource_group" "example" {
   name     = "test-vm-groupterraf"
   location = "UK South"
 }
 
-# Virtual Network
 resource "azurerm_virtual_network" "example" {
   name                = "test-vnet"
   address_space       = ["10.0.0.0/16"]
@@ -23,7 +28,6 @@ resource "azurerm_virtual_network" "example" {
   resource_group_name = azurerm_resource_group.example.name
 }
 
-# Subnet
 resource "azurerm_subnet" "example" {
   name                 = "test-subnet"
   resource_group_name  = azurerm_resource_group.example.name
@@ -31,7 +35,6 @@ resource "azurerm_subnet" "example" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# Network Security Group (NSG)
 resource "azurerm_network_security_group" "example" {
   name                = "test-nsg"
   location            = azurerm_resource_group.example.location
@@ -50,17 +53,15 @@ resource "azurerm_network_security_group" "example" {
   }
 }
 
-# Public IP
 resource "azurerm_public_ip" "example" {
   name                = "myPublicIP"
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  domain_name_label   = "myuniquednslabel1234" # must be globally unique
+  domain_name_label   = "vipulvm-${random_string.suffix.result}"
 }
 
-# Network Interface
 resource "azurerm_network_interface" "example" {
   name                = "test-nic"
   location            = azurerm_resource_group.example.location
@@ -74,13 +75,11 @@ resource "azurerm_network_interface" "example" {
   }
 }
 
-# Associate NSG to NIC
 resource "azurerm_network_interface_security_group_association" "example" {
   network_interface_id      = azurerm_network_interface.example.id
   network_security_group_id = azurerm_network_security_group.example.id
 }
 
-# Linux VM
 resource "azurerm_linux_virtual_machine" "example" {
   name                = "test-vm"
   resource_group_name = azurerm_resource_group.example.name
@@ -109,7 +108,6 @@ resource "azurerm_linux_virtual_machine" "example" {
   }
 }
 
-# Optional Output (to get IP)
 output "public_ip" {
   value = azurerm_public_ip.example.ip_address
 }
