@@ -35,10 +35,9 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
         TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
 
-    - name: 🌍 Extract Public IP from Terraform
-      id: ip
+    - name: 🌍 Extract Public IP from Terraform output
       run: |
-        echo "VM_IP=$(terraform show -json | jq -r '.values.root_module.resources[] | select(.type==\"azurerm_public_ip\") | .values.ip_address')" >> $GITHUB_ENV
+        echo "VM_IP=$(terraform output -raw public_ip)" >> $GITHUB_ENV
 
     - name: 🕒 Wait for SSH Port (30s)
       run: sleep 30

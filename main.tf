@@ -9,7 +9,6 @@ variable "ssh_public_key" {
   description = "SSH Public Key for the VM"
 }
 
-# Random suffix to make DNS globally unique
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
@@ -109,5 +108,7 @@ resource "azurerm_linux_virtual_machine" "example" {
 }
 
 output "public_ip" {
-  value = azurerm_public_ip.example.ip_address
+  value       = azurerm_public_ip.example.ip_address
+  description = "Public IP of the Azure VM"
+  sensitive   = false
 }
