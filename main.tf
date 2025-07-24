@@ -11,7 +11,7 @@ variable "ssh_public_key" {
 
 # Resource Group
 resource "azurerm_resource_group" "example" {
-  name     = "test-vm-group"
+  name     = "test-vm-groupterraf"
   location = "UK South"
 }
 
