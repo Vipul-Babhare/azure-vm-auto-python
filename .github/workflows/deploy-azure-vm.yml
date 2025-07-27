@@ -1,4 +1,4 @@
-name: 🚀 Azure VM Auto Deploy & Run Script
+name: 🚀 Azure VM Auto Deploy & Train Model
 
 on:
   workflow_dispatch:
@@ -42,16 +42,25 @@ jobs:
     - name: 🕒 Wait for SSH Port (30s)
       run: sleep 30
 
-    - name: 🚚 Copy Python script to VM
+    - name: 🔑 Write SSH Private Key
       run: |
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
         chmod 600 key.pem
-        scp -o StrictHostKeyChecking=no -i key.pem test_script.py azureuser@${{ env.VM_IP }}:/home/azureuser/
 
-    - name: 🧪 Run Python script on VM
+    - name: 🧲 Clone repo & install Python deps
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} "python3 /home/azureuser/test_script.py"
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+          git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git
+          cd azure-vm-auto-python
+          sudo apt update
+          sudo apt install -y python3-pip
+          pip3 install --upgrade pip
+          pip3 install -r requirements.txt
+        EOF
 
-    - name: ✅ Show output file content
+    - name: 🧪 Run training script on VM
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} "cat /home/azureuser/output.txt"
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+          cd azure-vm-auto-python
+          python3 main.py
+        EOF
