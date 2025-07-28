@@ -64,3 +64,15 @@ jobs:
           cd azure-vm-auto-python
           python3 main.py
         EOF
+
+    - name: ⬆️ Push model & plots to GitHub
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+          cd azure-vm-auto-python
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/Vipul-Babhare/azure-vm-auto-python.git
+          git add models/ plots/
+          git commit -m "✅ Auto-commit: trained model + plots from pipeline"
+          git push origin main
+        EOF
