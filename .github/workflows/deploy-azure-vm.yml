@@ -76,3 +76,20 @@ jobs:
           git commit -m "✅ Auto-commit: trained model + plots from pipeline"
           git push origin main
         EOF
+
+    - name: 🐳 Install Docker & Serve Model via TensorFlow Serving
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+          sudo apt update
+          sudo apt install -y docker.io
+          sudo systemctl start docker
+          sudo systemctl enable docker
+
+          cd azure-vm-auto-python
+          sudo docker run -d --rm \
+            -p 8501:8501 \
+            --name=tf-serving \
+            -v \$PWD/models/my_model:/models/my_model \
+            -e MODEL_NAME=my_model \
+            tensorflow/serving
+        EOF
