@@ -39,7 +39,7 @@ resource "azurerm_network_security_group" "example" {
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
 
-  # Allow SSH (22)
+  # Allow SSH
   security_rule {
     name                       = "Allow-SSH"
     priority                   = 1001
@@ -52,7 +52,7 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Allow TensorFlow Serving (8501)
+  # TensorFlow Serving (8501)
   security_rule {
     name                       = "Allow-TFServing"
     priority                   = 1002
@@ -65,7 +65,7 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Allow Prometheus (9090)
+  # Prometheus (9090)
   security_rule {
     name                       = "Allow-Prometheus"
     priority                   = 1003
@@ -78,7 +78,7 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Allow Node Exporter (9100)
+  # Node Exporter (9100)
   security_rule {
     name                       = "Allow-NodeExporter"
     priority                   = 1004
@@ -91,7 +91,7 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Allow cAdvisor (9323)
+  # cAdvisor (9323)
   security_rule {
     name                       = "Allow-cAdvisor"
     priority                   = 1005
@@ -104,7 +104,7 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Allow Grafana (3000)
+  # Grafana (3000)
   security_rule {
     name                       = "Allow-Grafana"
     priority                   = 1006
@@ -113,6 +113,32 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "3000"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # JWT Auth Service (5001)
+  security_rule {
+    name                       = "Allow-JWTAuth"
+    priority                   = 1007
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5001"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # JWT Validator Service (5002)
+  security_rule {
+    name                       = "Allow-JWTValidator"
+    priority                   = 1008
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5002"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }

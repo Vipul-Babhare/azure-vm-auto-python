@@ -125,3 +125,23 @@ jobs:
           # Run Grafana
           sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
         EOF
+        - name: 🔐 Start JWT Authentication + Validator Containers
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+          cd azure-vm-auto-python
+
+          # Stop any existing containers
+          sudo docker rm -f jwt-auth jwt-validator || true
+
+          # Build and run jwt-authentication
+          cd jwt-authentication
+          sudo docker build -t jwt-auth-image .
+          sudo docker run -d --name jwt-auth -p 5001:5000 jwt-auth-image
+          cd ..
+
+          # Build and run jwt-validator
+          cd jwt-validator
+          sudo docker build -t jwt-validator-image .
+          sudo docker run -d --name jwt-validator -p 5002:5000 jwt-validator-image
+          cd ..
+        EOF
