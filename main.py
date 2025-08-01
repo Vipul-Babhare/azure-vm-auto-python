@@ -587,15 +587,11 @@ class RainfallPredictor:
             metrics=['mae']
         )
         
-        from io import StringIO
-
         self.model = model
-
+        
         print("Model Architecture:")
-        stream = StringIO()
-        model.summary(print_fn=lambda x: stream.write(x + "\n"))
-        print(stream.getvalue())
-
+        print(model.summary())
+        
         return model
     
     def train_model(self, epochs=100, batch_size=32, validation_split=0.2):
