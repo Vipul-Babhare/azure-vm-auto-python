@@ -39,7 +39,7 @@ resource "azurerm_network_security_group" "example" {
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
 
-  # Allow SSH (port 22)
+  # Allow SSH (22)
   security_rule {
     name                       = "Allow-SSH"
     priority                   = 1001
@@ -52,7 +52,7 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Allow TensorFlow Serving (port 8501)
+  # Allow TensorFlow Serving (8501)
   security_rule {
     name                       = "Allow-TFServing"
     priority                   = 1002
@@ -61,6 +61,58 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "8501"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # Allow Prometheus (9090)
+  security_rule {
+    name                       = "Allow-Prometheus"
+    priority                   = 1003
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9090"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # Allow Node Exporter (9100)
+  security_rule {
+    name                       = "Allow-NodeExporter"
+    priority                   = 1004
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9100"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # Allow cAdvisor (9323)
+  security_rule {
+    name                       = "Allow-cAdvisor"
+    priority                   = 1005
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9323"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # Allow Grafana (3000)
+  security_rule {
+    name                       = "Allow-Grafana"
+    priority                   = 1006
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3000"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
