@@ -49,15 +49,20 @@ jobs:
 
     - name: 🧲 Clone Repo & Install Python Deps
       run: |
-        ssh -tt -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
           cd azure-vm-auto-python
+          
           sudo apt update
-          sudo apt install -y python3-pip
-          pip3 install --upgrade pip
-          pip3 install --no-cache-dir -r requirements.txt --timeout 60
+          sudo apt install -y python3-pip python3-venv
 
+          # Upgrade pip with timeout and progress
+          timeout 60s pip3 install --upgrade pip || echo "⚠️ pip upgrade timeout or failed"
+
+          # Install requirements with retry and no cache
+          pip3 install --no-cache-dir -r requirements.txt --timeout 60 || echo "⚠️ pip install failed"
         EOF
+
 
     - name: 🧪 Run Training Script
       run: |
