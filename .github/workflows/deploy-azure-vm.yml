@@ -49,7 +49,7 @@ jobs:
 
     - name: 🧲 Clone Repo & Install Python Deps
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+        ssh -tt -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
           cd azure-vm-auto-python
           sudo apt update
@@ -60,14 +60,14 @@ jobs:
 
     - name: 🧪 Run Training Script
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+        ssh -tt -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           cd azure-vm-auto-python
           python3 main.py
         EOF
 
     - name: ⬆️ Push Model to GitHub
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+        ssh -tt -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           cd azure-vm-auto-python
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
@@ -79,7 +79,7 @@ jobs:
 
     - name: 🐳 Install Docker & Serve Model
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+        ssh -tt -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           sudo apt update
           sudo apt install -y docker.io
           sudo systemctl start docker
@@ -96,7 +96,7 @@ jobs:
 
     - name: 🛠️ Replace Private IP in Prometheus Template
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+        ssh -tt -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           cd azure-vm-auto-python
           PRIVATE_IP=$(hostname -I | awk '{print $1}')
           sed "s/{{PRIVATE_IP}}/\$PRIVATE_IP/g" monitoring/prometheus.template.yml > monitoring/prometheus.yml
@@ -104,7 +104,7 @@ jobs:
 
     - name: 📊 Start Prometheus + Grafana Stack
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+        ssh -tt -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           cd azure-vm-auto-python
 
           sudo docker pull prom/prometheus
