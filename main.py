@@ -590,7 +590,8 @@ class RainfallPredictor:
         self.model = model
         
         print("Model Architecture:")
-        print(model.summary())
+        model.summary(print_fn=lambda x: print(x))
+
         
         return model
     
