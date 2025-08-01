@@ -50,7 +50,7 @@ jobs:
     - name: 🧲 Clone repo & install Python deps
       run: |
         ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
-          git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git
+          git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
           cd azure-vm-auto-python
           sudo apt update
           sudo apt install -y python3-pip
@@ -74,7 +74,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/Vipul-Babhare/azure-vm-auto-python.git
           git add models/ plots/
           git commit -m "✅ Auto-commit: trained model + plots from pipeline"
-          git push origin main
+          git push origin main || true
         EOF
 
     - name: 🐳 Install Docker & Serve Model via TensorFlow Serving
@@ -92,4 +92,36 @@ jobs:
             -v \$PWD/models/my_model:/models/my_model \
             -e MODEL_NAME=my_model \
             tensorflow/serving
+        EOF
+
+    - name: 📊 Start Monitoring Stack (Prometheus + Grafana + Exporters)
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+          cd azure-vm-auto-python
+
+          # Pull monitoring images
+          sudo docker pull prom/prometheus
+          sudo docker pull prom/node-exporter
+          sudo docker pull gcr.io/cadvisor/cadvisor
+          sudo docker pull grafana/grafana
+
+          # Run Node Exporter
+          sudo docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
+
+          # Run cAdvisor
+          sudo docker run -d --name cadvisor -p 9323:8080 \
+            -v /:/rootfs:ro \
+            -v /var/run:/var/run:ro \
+            -v /sys:/sys:ro \
+            -v /var/lib/docker/:/var/lib/docker:ro \
+            -v /dev/disk/:/dev/disk:ro \
+            gcr.io/cadvisor/cadvisor
+
+          # Run Prometheus
+          sudo docker run -d --name prometheus -p 9090:9090 \
+            -v \$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
+            prom/prometheus
+
+          # Run Grafana
+          sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
         EOF
