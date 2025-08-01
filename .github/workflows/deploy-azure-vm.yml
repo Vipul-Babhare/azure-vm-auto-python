@@ -35,11 +35,11 @@ jobs:
         ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
         TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
 
-    - name: 🌍 Extract Public IP from Terraform output
+    - name: 🌍 Extract Public IP
       run: |
         echo "VM_IP=$(terraform output -raw public_ip)" >> $GITHUB_ENV
 
-    - name: 🕒 Wait for SSH Port (30s)
+    - name: 🕒 Wait for SSH Port
       run: sleep 30
 
     - name: 🔑 Write SSH Private Key
@@ -47,9 +47,9 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
         chmod 600 key.pem
 
-    - name: 🧲 Clone repo & install Python deps
+    - name: 🧲 Clone Repo & Install Python Deps
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
           cd azure-vm-auto-python
           sudo apt update
@@ -58,34 +58,34 @@ jobs:
           pip3 install -r requirements.txt
         EOF
 
-    - name: 🧪 Run training script on VM
+    - name: 🧪 Run Training Script
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           cd azure-vm-auto-python
           python3 main.py
         EOF
 
-    - name: ⬆️ Push model & plots to GitHub
+    - name: ⬆️ Push Model to GitHub
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           cd azure-vm-auto-python
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/Vipul-Babhare/azure-vm-auto-python.git
           git add models/ plots/
-          git commit -m "✅ Auto-commit: trained model + plots from pipeline"
+          git commit -m "✅ Auto-commit: trained model + plots from pipeline" || true
           git push origin main || true
         EOF
 
-    - name: 🐳 Install Docker & Serve Model via TensorFlow Serving
+    - name: 🐳 Install Docker & Serve Model
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           sudo apt update
           sudo apt install -y docker.io
           sudo systemctl start docker
           sudo systemctl enable docker
-
           cd azure-vm-auto-python
+          sudo docker rm -f tf-serving || true
           sudo docker run -d --rm \
             -p 8501:8501 \
             --name=tf-serving \
@@ -94,21 +94,28 @@ jobs:
             tensorflow/serving
         EOF
 
-    - name: 📊 Start Monitoring Stack (Prometheus + Grafana + Exporters)
+    - name: 🛠️ Replace Private IP in Prometheus Template
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+          cd azure-vm-auto-python
+          PRIVATE_IP=$(hostname -I | awk '{print $1}')
+          sed "s/{{PRIVATE_IP}}/\$PRIVATE_IP/g" monitoring/prometheus.template.yml > monitoring/prometheus.yml
+        EOF
+
+    - name: 📊 Start Prometheus + Grafana Stack
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
           cd azure-vm-auto-python
 
-          # Pull monitoring images
           sudo docker pull prom/prometheus
           sudo docker pull prom/node-exporter
           sudo docker pull gcr.io/cadvisor/cadvisor
           sudo docker pull grafana/grafana
 
-          # Run Node Exporter
+          sudo docker rm -f node-exporter cadvisor prometheus grafana || true
+
           sudo docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
 
-          # Run cAdvisor
           sudo docker run -d --name cadvisor -p 9323:8080 \
             -v /:/rootfs:ro \
             -v /var/run:/var/run:ro \
@@ -117,11 +124,9 @@ jobs:
             -v /dev/disk/:/dev/disk:ro \
             gcr.io/cadvisor/cadvisor
 
-          # Run Prometheus
           sudo docker run -d --name prometheus -p 9090:9090 \
             -v \$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
             prom/prometheus
 
-          # Run Grafana
           sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
         EOF
