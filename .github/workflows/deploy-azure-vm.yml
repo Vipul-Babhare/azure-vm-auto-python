@@ -37,7 +37,10 @@ jobs:
 
     - name: 🌍 Extract Public IP from Terraform output
       run: |
-        echo "VM_IP=$(terraform output -raw public_ip)" >> $GITHUB_ENV
+        IP=$(terraform output -raw public_ip)
+         echo "VM_IP=$IP" >> $GITHUB_ENV
+         echo "🌐 Public IP of the VM is: $IP"
+
 
     - name: 🕒 Wait for SSH Port (30s)
       run: sleep 30
