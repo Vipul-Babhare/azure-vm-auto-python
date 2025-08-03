@@ -125,9 +125,10 @@ jobs:
           # Run Grafana
           sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
         EOF
-        - name: 🔐 Start JWT Authentication + Validator Containers
+
+    - name: 🔐 Start JWT Authentication + Validator Containers
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} << 'EOF'
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
           cd azure-vm-auto-python
 
           # Stop any existing containers
