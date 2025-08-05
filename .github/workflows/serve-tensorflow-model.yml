@@ -1,0 +1,35 @@
+name: 🧠 Deploy TensorFlow Serving on Existing VM
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tf_serve:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: ⬇️ Checkout repo
+      uses: actions/checkout@v3
+
+    - name: 🔑 Write SSH Key
+      run: |
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+        chmod 600 key.pem
+
+    - name: 🧠 Deploy TensorFlow Serving container
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ secrets.VM_PUBLIC_IP }} <<'EOF'
+          cd azure-vm-auto-python
+
+          # Stop old container if running
+          sudo docker rm -f tf-serving || true
+
+          # Run TensorFlow Serving with model at models/my_model/1
+          sudo docker run -d \
+            --name tf-serving \
+            --network tfnet \
+            -p 8501:8501 \
+            -v \$PWD/models/my_model:/models/my_model \
+            -e MODEL_NAME=my_model \
+            tensorflow/serving
+        EOF
