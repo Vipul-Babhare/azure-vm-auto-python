@@ -1,0 +1,118 @@
+name: 🛠️ Deploy VM & Serve Model + JWT + Monitoring
+
+on:
+  workflow_dispatch:
+
+jobs:
+  serve:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: ⬇️ Checkout code
+      uses: actions/checkout@v3
+
+    - name: ⚙️ Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.6.6
+
+    - name: 🔐 Azure Login using Service Principal
+      run: |
+        az login --service-principal \
+          --username ${{ secrets.ARM_CLIENT_ID }} \
+          --password ${{ secrets.ARM_CLIENT_SECRET }} \
+          --tenant ${{ secrets.ARM_TENANT_ID }}
+
+    - name: 📦 Terraform Init
+      run: terraform init
+
+    - name: 📌 Terraform Apply
+      run: terraform apply -auto-approve
+      env:
+        ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+        ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+        TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
+
+    - name: 🌍 Extract Public IP
+      run: |
+        IP=$(terraform output -raw public_ip)
+        echo "VM_IP=$IP" >> $GITHUB_ENV
+        echo "ℹ️ Public IP: $IP"
+
+    - name: 🕒 Wait for SSH Port
+      run: sleep 30
+
+    - name: 🔑 SSH Private Key Setup
+      run: |
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+        chmod 600 key.pem
+
+    - name: 📦 Install Docker + Clone Repo + Build Containers
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<'EOF'
+          sudo apt update
+          sudo apt install -y docker.io git
+
+          # Clone repo
+          git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
+          cd azure-vm-auto-python
+
+          # Create shared Docker network
+          sudo docker network create tfnet || true
+
+          # --- TensorFlow Serving Container ---
+          sudo docker rm -f tf-serving || true
+          sudo docker run -d \
+            --name tf-serving \
+            --network tfnet \
+            -p 8501:8501 \
+            -v \$PWD/models/my_model:/models/my_model \
+            -e MODEL_NAME=my_model \
+            tensorflow/serving
+
+          # --- JWT Authentication ---
+          cd jwt-authentication
+          sudo docker build -t jwt-auth-image .
+          sudo docker rm -f jwt-auth || true
+          sudo docker run -d --name jwt-auth --network tfnet -p 5001:5001 jwt-auth-image
+          cd ..
+
+          # --- JWT Validator ---
+          cd jwt-validator
+          sudo docker build -t jwt-validator-image .
+          sudo docker rm -f jwt-validator || true
+          sudo docker run -d \
+            --name jwt-validator \
+            --network tfnet \
+            -p 5002:5000 \
+            -e TF_SERVING_URL=http://tf-serving:8501/v1/models/my_model:predict \
+            jwt-validator-image
+          cd ..
+
+          # --- Monitoring Stack ---
+          sudo docker pull prom/prometheus
+          sudo docker pull prom/node-exporter
+          sudo docker pull gcr.io/cadvisor/cadvisor
+          sudo docker pull grafana/grafana
+
+          sudo docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
+
+          sudo docker run -d --name cadvisor -p 9323:8080 \
+            -v /:/rootfs:ro \
+            -v /var/run:/var/run:ro \
+            -v /sys:/sys:ro \
+            -v /var/lib/docker/:/var/lib/docker:ro \
+            -v /dev/disk/:/dev/disk:ro \
+            gcr.io/cadvisor/cadvisor
+
+          sudo docker run -d --name prometheus -p 9090:9090 \
+            -v \$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
+            prom/prometheus
+
+          sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
+        EOF
+
+    - name: ✅ Done
+      run: echo "🎉 VM is ready at ${{ env.VM_IP }}"
