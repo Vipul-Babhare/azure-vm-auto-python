@@ -16,20 +16,16 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
         chmod 600 key.pem
 
-    - name: 🧠 Deploy TensorFlow Serving container
+    - name: 🚀 Deploy TensorFlow Model
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ secrets.VM_PUBLIC_IP }} <<'EOF'
-          cd azure-vm-auto-python
-
-          # Stop old container if running
-          sudo docker rm -f tf-serving || true
-
-          # Run TensorFlow Serving with model at models/my_model/1
-          sudo docker run -d \
-            --name tf-serving \
-            --network tfnet \
-            -p 8501:8501 \
-            -v \$PWD/models/my_model:/models/my_model \
-            -e MODEL_NAME=my_model \
-            tensorflow/serving
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ secrets.STATIC_VM_IP }} <<'EOF'
+        cd azure-vm-auto-python
+        sudo docker run -d \
+        --name tf-serving \
+        --network tfnet \
+        -p 8501:8501 \
+        -v $PWD/models/my_model:/models/my_model \
+        -e MODEL_NAME=my_model \
+        tensorflow/serving
         EOF
+
