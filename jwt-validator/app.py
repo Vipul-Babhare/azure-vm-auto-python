@@ -27,5 +27,4 @@ def proxy_predict():
     return jsonify(response.json()), response.status_code
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
-
+    app.run(host='0.0.0.0', port=5000)  # ✅ FIXED to 5000
