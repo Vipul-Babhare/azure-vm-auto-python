@@ -1,0 +1,74 @@
+name: 🚀 Azure VM Auto Deploy & Train Model
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-and-train:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: ⬇️ Checkout repo
+      uses: actions/checkout@v3
+
+    - name: ⚙️ Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.6.6
+
+    - name: 🔐 Azure Login using Service Principal
+      run: |
+        az login --service-principal \
+          --username ${{ secrets.ARM_CLIENT_ID }} \
+          --password ${{ secrets.ARM_CLIENT_SECRET }} \
+          --tenant ${{ secrets.ARM_TENANT_ID }}
+
+    - name: 📦 Terraform Init
+      run: terraform init
+
+    - name: 📌 Terraform Apply
+      run: terraform apply -auto-approve
+      env:
+        ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+        ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+        TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
+
+    - name: 🌍 Extract Public IP
+      run: |
+        IP=$(terraform output -raw public_ip)
+        echo "VM_IP=$IP" >> $GITHUB_ENV
+        echo "✅ Public IP: $IP"
+
+    - name: 🕒 Wait for SSH port (30s)
+      run: sleep 30
+
+    - name: 🔑 Setup SSH private key
+      run: |
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+        chmod 600 key.pem
+
+    - name: 🧲 Setup Python environment and train model
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+          git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
+          cd azure-vm-auto-python
+          sudo apt update
+          sudo apt install -y python3-pip
+          pip3 install --upgrade pip
+          pip3 install -r requirements.txt
+          python3 main.py
+        EOF
+
+    - name: ⬆️ Auto-commit trained model & plots to GitHub
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
+          cd azure-vm-auto-python
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/Vipul-Babhare/azure-vm-auto-python.git
+          git add models/ plots/
+          git commit -m "✅ Auto-commit: trained model + plots"
+          git push origin main || true
+        EOF
