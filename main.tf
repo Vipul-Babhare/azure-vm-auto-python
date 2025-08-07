@@ -23,6 +23,7 @@ variable "allowed_ip_for_tf_serving" {
 
 data "azurerm_resource_group" "example" {
   name = "test-vm-groupterraf"
+  location = "UK South"  # Or leave blank if already exists
 }
 
 resource "random_string" "suffix" {
