@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+PyJWT==2.8.0
+python-dotenv
+pydantic

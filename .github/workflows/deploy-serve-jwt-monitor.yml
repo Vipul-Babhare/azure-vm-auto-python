@@ -25,18 +25,11 @@ jobs:
 
     - name: 📦 Terraform Init
       run: terraform init
-
-    - name: 🔄 Import Existing Resource Group to State
-      run: |
-        terraform import azurerm_resource_group.example "/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/test-vm-groupterraf"
-      env:
-        ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-        ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
-        ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-        ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      working-directory: infra/pipeline2
 
     - name: 📌 Terraform Apply
       run: terraform apply -auto-approve
+      working-directory: infra/pipeline2
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
@@ -46,7 +39,7 @@ jobs:
 
     - name: 🌍 Extract Public IP
       run: |
-        IP=$(terraform output -raw public_ip)
+        IP=$(terraform -chdir=infra/pipeline2 output -raw public_ip)
         echo "VM_IP=$IP" >> $GITHUB_ENV
         echo "ℹ️ Public IP: $IP"
 
@@ -96,7 +89,7 @@ jobs:
 
           # --- Token Validator ---
           cd token_validator
-          sudo docker build -t token-validator-image . 
+          sudo docker build -t token-validator-image .
           sudo docker rm -f token_validator || true
           sudo docker run -d \
             --name token_validator \

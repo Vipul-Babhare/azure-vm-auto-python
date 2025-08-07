@@ -25,9 +25,11 @@ jobs:
 
     - name: 📦 Terraform Init
       run: terraform init
+      working-directory: infra/pipeline1
 
     - name: 📌 Terraform Apply
       run: terraform apply -auto-approve
+      working-directory: infra/pipeline1
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
@@ -37,7 +39,7 @@ jobs:
 
     - name: 🌍 Extract Public IP
       run: |
-        IP=$(terraform output -raw public_ip)
+        IP=$(terraform -chdir=infra/pipeline1 output -raw public_ip)
         echo "VM_IP=$IP" >> $GITHUB_ENV
         echo "✅ Public IP: $IP"
 
@@ -73,13 +75,12 @@ jobs:
           git push origin main || true
         EOF
 
-    - name: 🧹 Destroy only the Azure VM (keep resource group)
-      run: |
-        terraform destroy -auto-approve -target=azurerm_linux_virtual_machine.example
+    - name: 🧹 Destroy only the Azure VM (keep RG, VNet, etc.)
+      run: terraform destroy -auto-approve -target=azurerm_linux_virtual_machine.example
+      working-directory: infra/pipeline1
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
         TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
-
