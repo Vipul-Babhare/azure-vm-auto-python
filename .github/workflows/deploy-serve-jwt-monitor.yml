@@ -24,7 +24,12 @@ jobs:
           --tenant ${{ secrets.ARM_TENANT_ID }}
 
     - name: 📦 Terraform Init
-      run: terraform init
+      run: terraform init 
+
+    - name: 🔄 Import Resource Group to Terraform state
+      run: |
+        terraform import azurerm_resource_group.example "/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/test-vm-groupterraf"
+
 
     - name: 📌 Terraform Apply
       run: terraform apply -auto-approve

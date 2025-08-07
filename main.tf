@@ -12,13 +12,17 @@ variable "ssh_public_key" {
 variable "allowed_ssh_cidr" {
   description = "CIDR range allowed to SSH into the VM"
   type        = string
-  default     = "0.0.0.0/0"  # TEMP: allow SSH from anywhere (change this later)
+  default     = "0.0.0.0/0"
 }
 
 variable "allowed_ip_for_tf_serving" {
   description = "CIDR allowed to access TensorFlow Serving endpoint"
   type        = string
-  default     = "0.0.0.0/0"  # TEMP: allow TF Serving access from anywhere (change this later)
+  default     = "0.0.0.0/0"
+}
+
+data "azurerm_resource_group" "example" {
+  name = "test-vm-groupterraf"
 }
 
 resource "random_string" "suffix" {
@@ -27,31 +31,25 @@ resource "random_string" "suffix" {
   special = false
 }
 
-resource "azurerm_resource_group" "example" {
-  name     = "test-vm-groupterraf"
-  location = "UK South"
-}
-
 resource "azurerm_virtual_network" "example" {
   name                = "test-vnet"
   address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+  location            = data.azurerm_resource_group.example.location
+  resource_group_name = data.azurerm_resource_group.example.name
 }
 
 resource "azurerm_subnet" "example" {
   name                 = "test-subnet"
-  resource_group_name  = azurerm_resource_group.example.name
+  resource_group_name  = data.azurerm_resource_group.example.name
   virtual_network_name = azurerm_virtual_network.example.name
   address_prefixes     = ["10.0.2.0/24"]
 }
 
 resource "azurerm_network_security_group" "example" {
   name                = "test-nsg"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+  location            = data.azurerm_resource_group.example.location
+  resource_group_name = data.azurerm_resource_group.example.name
 
-  # SSH
   security_rule {
     name                       = "Allow-SSH"
     priority                   = 1001
@@ -64,7 +62,6 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # TensorFlow Serving (8501)
   security_rule {
     name                       = "Allow-TFServing"
     priority                   = 1002
@@ -77,7 +74,6 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Prometheus (9090)
   security_rule {
     name                       = "Allow-Prometheus"
     priority                   = 1003
@@ -90,7 +86,6 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Node Exporter (9100)
   security_rule {
     name                       = "Allow-NodeExporter"
     priority                   = 1004
@@ -103,7 +98,6 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # cAdvisor (9323)
   security_rule {
     name                       = "Allow-cAdvisor"
     priority                   = 1005
@@ -116,7 +110,6 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Grafana (3000)
   security_rule {
     name                       = "Allow-Grafana"
     priority                   = 1006
@@ -129,7 +122,6 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Token Generator (8082)
   security_rule {
     name                       = "Allow-TokenGenerator"
     priority                   = 1007
@@ -142,7 +134,6 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # Token Validator (8083)
   security_rule {
     name                       = "Allow-TokenValidator"
     priority                   = 1008
@@ -158,8 +149,8 @@ resource "azurerm_network_security_group" "example" {
 
 resource "azurerm_public_ip" "example" {
   name                = "myPublicIP"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+  location            = data.azurerm_resource_group.example.location
+  resource_group_name = data.azurerm_resource_group.example.name
   allocation_method   = "Static"
   sku                 = "Standard"
   domain_name_label   = "vipulvm-${random_string.suffix.result}"
@@ -167,8 +158,8 @@ resource "azurerm_public_ip" "example" {
 
 resource "azurerm_network_interface" "example" {
   name                = "test-nic"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+  location            = data.azurerm_resource_group.example.location
+  resource_group_name = data.azurerm_resource_group.example.name
 
   ip_configuration {
     name                          = "internal"
@@ -185,8 +176,8 @@ resource "azurerm_network_interface_security_group_association" "example" {
 
 resource "azurerm_linux_virtual_machine" "example" {
   name                = "test-vm"
-  resource_group_name = azurerm_resource_group.example.name
-  location            = azurerm_resource_group.example.location
+  resource_group_name = data.azurerm_resource_group.example.name
+  location            = data.azurerm_resource_group.example.location
   size                = "Standard_B1s"
   admin_username      = "azureuser"
   network_interface_ids = [
