@@ -21,9 +21,9 @@ variable "allowed_ip_for_tf_serving" {
   default     = "0.0.0.0/0"
 }
 
-data "azurerm_resource_group" "example" {
-  name = "test-vm-groupterraf"
-  location = "UK South"  # Or leave blank if already exists
+resource "azurerm_resource_group" "example" {
+  name     = "test-vm-groupterraf"
+  location = "UK South"
 }
 
 resource "random_string" "suffix" {
@@ -35,21 +35,21 @@ resource "random_string" "suffix" {
 resource "azurerm_virtual_network" "example" {
   name                = "test-vnet"
   address_space       = ["10.0.0.0/16"]
-  location            = data.azurerm_resource_group.example.location
-  resource_group_name = data.azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
 }
 
 resource "azurerm_subnet" "example" {
   name                 = "test-subnet"
-  resource_group_name  = data.azurerm_resource_group.example.name
+  resource_group_name  = azurerm_resource_group.example.name
   virtual_network_name = azurerm_virtual_network.example.name
   address_prefixes     = ["10.0.2.0/24"]
 }
 
 resource "azurerm_network_security_group" "example" {
   name                = "test-nsg"
-  location            = data.azurerm_resource_group.example.location
-  resource_group_name = data.azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
 
   security_rule {
     name                       = "Allow-SSH"
@@ -150,8 +150,8 @@ resource "azurerm_network_security_group" "example" {
 
 resource "azurerm_public_ip" "example" {
   name                = "myPublicIP"
-  location            = data.azurerm_resource_group.example.location
-  resource_group_name = data.azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
   allocation_method   = "Static"
   sku                 = "Standard"
   domain_name_label   = "vipulvm-${random_string.suffix.result}"
@@ -159,8 +159,8 @@ resource "azurerm_public_ip" "example" {
 
 resource "azurerm_network_interface" "example" {
   name                = "test-nic"
-  location            = data.azurerm_resource_group.example.location
-  resource_group_name = data.azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
 
   ip_configuration {
     name                          = "internal"
@@ -177,8 +177,8 @@ resource "azurerm_network_interface_security_group_association" "example" {
 
 resource "azurerm_linux_virtual_machine" "example" {
   name                = "test-vm"
-  resource_group_name = data.azurerm_resource_group.example.name
-  location            = data.azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
   size                = "Standard_B1s"
   admin_username      = "azureuser"
   network_interface_ids = [
