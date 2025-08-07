@@ -26,14 +26,14 @@ jobs:
     - name: 📦 Terraform Init
       run: terraform init
 
-    - name: 🔄 Import Resource Group to Terraform state
-      run: |
-        terraform import azurerm_resource_group.example "/subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/test-vm-groupterraf"
+    - name: 🔍 Terraform Plan
+      run: terraform plan
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+        TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
 
     - name: 📌 Terraform Apply
       run: terraform apply -auto-approve
