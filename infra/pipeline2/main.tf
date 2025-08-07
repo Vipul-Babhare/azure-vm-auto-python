@@ -25,6 +25,11 @@ data "azurerm_resource_group" "example" {
   name = "test-vm-groupterraf"
 }
 
+data "azurerm_public_ip" "example" {
+  name                = "myPublicIP"
+  resource_group_name = data.azurerm_resource_group.example.name
+}
+
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
@@ -147,15 +152,6 @@ resource "azurerm_network_security_group" "example" {
   }
 }
 
-resource "azurerm_public_ip" "example" {
-  name                = "myPublicIP"
-  location            = data.azurerm_resource_group.example.location
-  resource_group_name = data.azurerm_resource_group.example.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-  domain_name_label   = "vipulvm-${random_string.suffix.result}"
-}
-
 resource "azurerm_network_interface" "example" {
   name                = "test-nic"
   location            = data.azurerm_resource_group.example.location
@@ -165,7 +161,7 @@ resource "azurerm_network_interface" "example" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.example.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.example.id
+    public_ip_address_id          = data.azurerm_public_ip.example.id
   }
 }
 
@@ -203,7 +199,7 @@ resource "azurerm_linux_virtual_machine" "example" {
 }
 
 output "public_ip" {
-  value       = azurerm_public_ip.example.ip_address
+  value       = data.azurerm_public_ip.example.ip_address
   description = "Public IP of the Azure VM"
   sensitive   = false
 }
