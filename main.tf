@@ -9,6 +9,18 @@ variable "ssh_public_key" {
   description = "SSH Public Key for the VM"
 }
 
+variable "allowed_ssh_cidr" {
+  description = "CIDR range allowed to SSH into the VM"
+  type        = string
+  default     = "0.0.0.0/0"  # TEMP: allow SSH from anywhere (change this later)
+}
+
+variable "allowed_ip_for_tf_serving" {
+  description = "CIDR allowed to access TensorFlow Serving endpoint"
+  type        = string
+  default     = "0.0.0.0/0"  # TEMP: allow TF Serving access from anywhere (change this later)
+}
+
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
@@ -39,7 +51,7 @@ resource "azurerm_network_security_group" "example" {
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
 
-  # Allow SSH
+  # SSH
   security_rule {
     name                       = "Allow-SSH"
     priority                   = 1001
@@ -48,7 +60,7 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = "*"
+    source_address_prefix      = var.allowed_ssh_cidr
     destination_address_prefix = "*"
   }
 
@@ -61,7 +73,7 @@ resource "azurerm_network_security_group" "example" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "8501"
-    source_address_prefix      = "*"
+    source_address_prefix      = var.allowed_ip_for_tf_serving
     destination_address_prefix = "*"
   }
 
@@ -117,28 +129,28 @@ resource "azurerm_network_security_group" "example" {
     destination_address_prefix = "*"
   }
 
-  # JWT Auth Service (5001)
+  # Token Generator (8082)
   security_rule {
-    name                       = "Allow-JWTAuth"
+    name                       = "Allow-TokenGenerator"
     priority                   = 1007
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "5001"
+    destination_port_range     = "8082"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
 
-  # JWT Validator Service (5002)
+  # Token Validator (8083)
   security_rule {
-    name                       = "Allow-JWTValidator"
+    name                       = "Allow-TokenValidator"
     priority                   = 1008
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "5002"
+    destination_port_range     = "8083"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }

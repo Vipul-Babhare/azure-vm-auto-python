@@ -72,23 +72,31 @@ jobs:
             -e MODEL_NAME=my_model \
             tensorflow/serving
 
-          # --- JWT Authentication ---
-          cd jwt-authentication
-          sudo docker build -t jwt-auth-image .
-          sudo docker rm -f jwt-auth || true
-          sudo docker run -d --name jwt-auth --network tfnet -p 5001:5001 jwt-auth-image
+          # --- Token Generator ---
+          cd token_generator
+          sudo docker build -t token-generator-image .
+          sudo docker rm -f token_generator || true
+          sudo docker run -d \
+            --name token_generator \
+            --network tfnet \
+            -p 8082:8082 \
+            -e JWT_SECRET_KEY=my-super-secret-key-123 \
+            -e TOKEN_EXPIRATION_HOURS=24 \
+            token-generator-image
           cd ..
 
-          # --- JWT Validator ---
-          cd jwt-validator
-          sudo docker build -t jwt-validator-image .
-          sudo docker rm -f jwt-validator || true
+          # --- Token Validator ---
+          cd token_validator
+          sudo docker build -t token-validator-image .
+          sudo docker rm -f token_validator || true
           sudo docker run -d \
-            --name jwt-validator \
+            --name token_validator \
             --network tfnet \
-            -p 5002:5000 \
-            -e TF_SERVING_URL=http://tf-serving:8501/v1/models/my_model:predict \
-            jwt-validator-image
+            -p 8083:8083 \
+            -e JWT_SECRET_KEY=my-super-secret-key-123 \
+            -e MODEL_SERVING_URL=http://tf-serving:8501/v1/models/my_model:predict \
+            --add-host=host.docker.internal:host-gateway \
+            token-validator-image
           cd ..
 
           # --- Monitoring Stack ---
