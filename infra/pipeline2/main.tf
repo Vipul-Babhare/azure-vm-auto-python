@@ -9,36 +9,6 @@ variable "ssh_public_key" {
   description = "SSH Public Key for the VM"
 }
 
-variable "allowed_ssh_cidr" {
-  description = "CIDR allowed to SSH into VM"
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-variable "allowed_ip_for_tf_serving" {
-  description = "CIDR allowed to access TF Serving"
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-variable "allowed_ip_for_streamlit" {
-  description = "CIDR allowed to access Streamlit app"
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-variable "allowed_ip_for_grafana" {
-  description = "CIDR allowed to access Grafana"
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-variable "allowed_ip_for_prometheus" {
-  description = "CIDR allowed to access Prometheus"
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
 # Reference existing Resource Group
 data "azurerm_resource_group" "example" {
   name = "test-vm-groupterraf"
@@ -57,55 +27,10 @@ data "azurerm_subnet" "example" {
   resource_group_name  = data.azurerm_resource_group.example.name
 }
 
-# Reference existing NSG
+# Reference existing Network Security Group (already has rules from pipeline 1)
 data "azurerm_network_security_group" "example" {
   name                = "test-nsg"
   resource_group_name = data.azurerm_resource_group.example.name
-}
-
-# --- Open Streamlit Port ---
-resource "azurerm_network_security_rule" "streamlit" {
-  name                        = "Allow-Streamlit"
-  priority                    = 400
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_ranges     = ["8502"]
-  source_address_prefixes     = [var.allowed_ip_for_streamlit]
-  destination_address_prefix  = "*"
-  resource_group_name         = data.azurerm_resource_group.example.name
-  network_security_group_name = data.azurerm_network_security_group.example.name
-}
-
-# --- Open Grafana Port ---
-resource "azurerm_network_security_rule" "grafana" {
-  name                        = "Allow-Grafana"
-  priority                    = 401
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_ranges     = ["3000"]
-  source_address_prefixes     = [var.allowed_ip_for_grafana]
-  destination_address_prefix  = "*"
-  resource_group_name         = data.azurerm_resource_group.example.name
-  network_security_group_name = data.azurerm_network_security_group.example.name
-}
-
-# --- Open Prometheus Port ---
-resource "azurerm_network_security_rule" "prometheus" {
-  name                        = "Allow-Prometheus"
-  priority                    = 402
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_ranges     = ["9090"]
-  source_address_prefixes     = [var.allowed_ip_for_prometheus]
-  destination_address_prefix  = "*"
-  resource_group_name         = data.azurerm_resource_group.example.name
-  network_security_group_name = data.azurerm_network_security_group.example.name
 }
 
 # Reference existing Public IP
@@ -114,15 +39,15 @@ data "azurerm_public_ip" "example" {
   resource_group_name = data.azurerm_resource_group.example.name
 }
 
-# Reference existing NIC
+# Reference existing Network Interface
 data "azurerm_network_interface" "example" {
   name                = "test-nic"
   resource_group_name = data.azurerm_resource_group.example.name
 }
 
-# Create VM
+# Create new VM for pipeline 2
 resource "azurerm_linux_virtual_machine" "example" {
-  name                = "test-vm"
+  name                = "test-vm-pipeline2"
   resource_group_name = data.azurerm_resource_group.example.name
   location            = data.azurerm_resource_group.example.location
   size                = "Standard_B1s"
@@ -151,6 +76,6 @@ resource "azurerm_linux_virtual_machine" "example" {
 
 output "public_ip" {
   value       = data.azurerm_public_ip.example.ip_address
-  description = "Public IP of the Azure VM"
+  description = "Public IP of the Azure VM for pipeline 2"
   sensitive   = false
 }
