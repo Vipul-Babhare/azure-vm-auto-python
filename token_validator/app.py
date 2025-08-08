@@ -16,7 +16,7 @@ app = FastAPI(
 
 # Configuration
 SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-secret-key-change-this')
-MODEL_SERVING_URL = os.getenv('MODEL_SERVING_URL', 'http://172.167.123.228:8083')
+MODEL_SERVING_URL = os.getenv('MODEL_SERVING_URL', 'http://172.166.194.34:8083')
 
 # Security
 security = HTTPBearer()
