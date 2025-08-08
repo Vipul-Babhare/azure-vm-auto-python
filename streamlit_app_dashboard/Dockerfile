@@ -36,7 +36,7 @@ EXPOSE 8502
  
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://172.166.194.34:8502/_stcore/health || exit 1
+    CMD curl -f http://172.166.149.252:8502/_stcore/health || exit 1
  
 # Run the Streamlit application
 CMD ["streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8502"]
