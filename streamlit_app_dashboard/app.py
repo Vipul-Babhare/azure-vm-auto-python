@@ -790,8 +790,8 @@ def logout():
     st.rerun()
 
 # --- Config ---
-MODEL_URL = "http://141.147.118.28:8520/v1/models/rainfall_model:predict"
-PROFILING_URL = "http://141.147.118.28:8520/v1/models/rainfall_model/metadata"  # If available
+MODEL_URL = "http://172.167.123.228:8502/v1/models/rainfall_model:predict"
+PROFILING_URL = "http://172.167.123.228:8502/v1/models/rainfall_model/metadata"  # If available
 
 # --- Helper Functions ---
 def run_inference_with_detailed_timing(payload):
