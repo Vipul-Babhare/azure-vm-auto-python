@@ -1,4 +1,4 @@
-name: 🚀 Azure VM Auto Deploy & Train Model
+name: 🚀 Build-Pipeline
 
 on:
   workflow_dispatch:

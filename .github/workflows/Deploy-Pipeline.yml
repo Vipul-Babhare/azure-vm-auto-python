@@ -1,4 +1,4 @@
-name: 🧠 Deploy TensorFlow Serving on Existing VM
+name: 🧠 Deploy Pipeline
 
 on:
   workflow_dispatch:

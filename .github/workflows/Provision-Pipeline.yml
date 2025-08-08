@@ -1,4 +1,4 @@
-name: 🛠️ Deploy VM & Serve Model + JWT + Monitoring
+name: 🛠️ Provision-Pipeline
 
 on:
   workflow_dispatch:
