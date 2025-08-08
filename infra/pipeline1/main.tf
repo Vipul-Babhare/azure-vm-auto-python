@@ -76,7 +76,7 @@ resource "azurerm_network_security_group" "example" {
   }
   
   security_rule {
-    name                       = "Allow-TFServing"
+    name                       = "Allow-TFServing-8502"
     priority                   = 1003
     direction                  = "Inbound"
     access                     = "Allow"
