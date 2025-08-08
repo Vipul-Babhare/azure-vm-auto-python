@@ -74,10 +74,23 @@ resource "azurerm_network_security_group" "example" {
     source_address_prefix      = var.allowed_ip_for_tf_serving
     destination_address_prefix = "*"
   }
+  
+  security_rule {
+    name                       = "Allow-TFServing"
+    priority                   = 1003
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8502"
+    source_address_prefix      = var.allowed_ip_for_tf_serving
+    destination_address_prefix = "*"
+  }
+
 
   security_rule {
     name                       = "Allow-Prometheus"
-    priority                   = 1003
+    priority                   = 1004
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -89,7 +102,7 @@ resource "azurerm_network_security_group" "example" {
 
   security_rule {
     name                       = "Allow-NodeExporter"
-    priority                   = 1004
+    priority                   = 1005
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -101,7 +114,7 @@ resource "azurerm_network_security_group" "example" {
 
   security_rule {
     name                       = "Allow-cAdvisor"
-    priority                   = 1005
+    priority                   = 1006
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -113,7 +126,7 @@ resource "azurerm_network_security_group" "example" {
 
   security_rule {
     name                       = "Allow-Grafana"
-    priority                   = 1006
+    priority                   = 1007
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -125,7 +138,7 @@ resource "azurerm_network_security_group" "example" {
 
   security_rule {
     name                       = "Allow-TokenGenerator"
-    priority                   = 1007
+    priority                   = 1008
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -137,7 +150,7 @@ resource "azurerm_network_security_group" "example" {
 
   security_rule {
     name                       = "Allow-TokenValidator"
-    priority                   = 1008
+    priority                   = 1009
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"

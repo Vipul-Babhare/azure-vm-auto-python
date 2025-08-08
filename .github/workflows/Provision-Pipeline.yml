@@ -51,7 +51,7 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
         chmod 600 key.pem
 
-    - name: 📦 Install Docker + Clone Repo + Build Containers
+    - name: 📦 Install Docker + Deploy All Containers
       run: |
         ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<'EOF'
           sudo apt update
@@ -102,13 +102,7 @@ jobs:
           cd ..
 
           # --- Monitoring Stack ---
-          sudo docker pull prom/prometheus
-          sudo docker pull prom/node-exporter
-          sudo docker pull gcr.io/cadvisor/cadvisor
-          sudo docker pull grafana/grafana
-
           sudo docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
-
           sudo docker run -d --name cadvisor -p 9323:8080 \
             -v /:/rootfs:ro \
             -v /var/run:/var/run:ro \
@@ -116,13 +110,23 @@ jobs:
             -v /var/lib/docker/:/var/lib/docker:ro \
             -v /dev/disk/:/dev/disk:ro \
             gcr.io/cadvisor/cadvisor
-
           sudo docker run -d --name prometheus -p 9090:9090 \
             -v \$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
             prom/prometheus
-
           sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
+
+          # --- Streamlit Dashboard ---
+          cd streamlit_app_dashboard
+          sudo docker build -t streamlit-dashboard .
+          sudo docker rm -f streamlit_dashboard || true
+          sudo docker run -d \
+            --name streamlit_dashboard \
+            --network tfnet \
+            -p 8502:8502 \
+            streamlit-dashboard
         EOF
 
     - name: ✅ Done
-      run: echo "🎉 VM is ready at ${{ env.VM_IP }}"
+      run: |
+        echo "🎉 VM is ready at ${{ env.VM_IP }}"
+        echo "📊 Streamlit Dashboard: http://${{ env.VM_IP }}:8502"
