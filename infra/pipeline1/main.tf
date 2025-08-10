@@ -6,7 +6,7 @@ provider "azurerm" {
 
 variable "ssh_public_key" {
   type        = string
-  description = "SSH Public Key for the temporary deploy VM"
+  description = "SSH Public Key for the persistent VM"
 }
 
 variable "allowed_ssh_cidr" {
@@ -21,72 +21,189 @@ variable "allowed_ip_for_tf_serving" {
   default     = "0.0.0.0/0"
 }
 
-# Static suffix for unique naming in deploy runs
+# Static suffix so names remain predictable
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
   special = false
 }
 
-# --- Reference existing infrastructure from provision pipeline ---
-
-data "azurerm_resource_group" "rg" {
-  name = "test-vm-groupterraf"
+# Resource Group
+resource "azurerm_resource_group" "rg" {
+  name     = "test-vm-groupterraf"
+  location = "UK South"
 }
 
-data "azurerm_virtual_network" "vnet" {
+# Virtual Network
+resource "azurerm_virtual_network" "vnet" {
   name                = "test-vnet"
-  resource_group_name = data.azurerm_resource_group.rg.name
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
 }
 
-data "azurerm_subnet" "subnet" {
+# Subnet
+resource "azurerm_subnet" "subnet" {
   name                 = "test-subnet"
-  virtual_network_name = data.azurerm_virtual_network.vnet.name
-  resource_group_name  = data.azurerm_resource_group.rg.name
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.2.0/24"]
 }
 
-data "azurerm_network_security_group" "nsg" {
+# Network Security Group
+resource "azurerm_network_security_group" "nsg" {
   name                = "test-nsg"
-  resource_group_name = data.azurerm_resource_group.rg.name
-}
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
 
-# --- Create temporary VM for deploy run ---
+  security_rule {
+    name                       = "Allow-SSH"
+    priority                   = 1001
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = var.allowed_ssh_cidr
+    destination_address_prefix = "*"
+  }
 
-resource "azurerm_public_ip" "pip_temp" {
-  name                = "tempPublicIP-${random_string.suffix.result}"
-  location            = data.azurerm_resource_group.rg.location
-  resource_group_name = data.azurerm_resource_group.rg.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-  domain_name_label   = "tempvm-${random_string.suffix.result}"
-}
+  security_rule {
+    name                       = "Allow-TFServing"
+    priority                   = 1002
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8501"
+    source_address_prefix      = var.allowed_ip_for_tf_serving
+    destination_address_prefix = "*"
+  }
+  
+  security_rule {
+    name                       = "Allow-TFServing-8502"
+    priority                   = 1003
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8502"
+    source_address_prefix      = var.allowed_ip_for_tf_serving
+    destination_address_prefix = "*"
+  }
 
-resource "azurerm_network_interface" "nic_temp" {
-  name                = "temp-nic-${random_string.suffix.result}"
-  location            = data.azurerm_resource_group.rg.location
-  resource_group_name = data.azurerm_resource_group.rg.name
+  security_rule {
+    name                       = "Allow-Prometheus"
+    priority                   = 1004
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9090"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = data.azurerm_subnet.subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.pip_temp.id
+  security_rule {
+    name                       = "Allow-NodeExporter"
+    priority                   = 1005
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9100"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-cAdvisor"
+    priority                   = 1006
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9323"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-Grafana"
+    priority                   = 1007
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3000"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-TokenGenerator"
+    priority                   = 1008
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8082"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-TokenValidator"
+    priority                   = 1009
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8083"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
   }
 }
 
-resource "azurerm_network_interface_security_group_association" "nsg_assoc_temp" {
-  network_interface_id      = azurerm_network_interface.nic_temp.id
-  network_security_group_id = data.azurerm_network_security_group.nsg.id
+# Public IP (persistent for primary VM)
+resource "azurerm_public_ip" "pip_primary" {
+  name                = "primaryPublicIP"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  domain_name_label   = "vipulvm-${random_string.suffix.result}"
 }
 
-resource "azurerm_linux_virtual_machine" "temp_vm" {
-  name                = "temp-vm-${random_string.suffix.result}"
-  resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
+# NIC for primary VM
+resource "azurerm_network_interface" "nic_primary" {
+  name                = "primary-nic"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.subnet.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.pip_primary.id
+  }
+}
+
+# Associate NSG to NIC
+resource "azurerm_network_interface_security_group_association" "nsg_assoc_primary" {
+  network_interface_id      = azurerm_network_interface.nic_primary.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
+# Persistent primary VM
+resource "azurerm_linux_virtual_machine" "primary_vm" {
+  name                = "primary-vm"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   size                = "Standard_B1s"
   admin_username      = "azureuser"
   network_interface_ids = [
-    azurerm_network_interface.nic_temp.id,
+    azurerm_network_interface.nic_primary.id,
   ]
 
   admin_ssh_key {
@@ -107,7 +224,31 @@ resource "azurerm_linux_virtual_machine" "temp_vm" {
   }
 }
 
-output "temp_vm_public_ip" {
-  value       = azurerm_public_ip.pip_temp.ip_address
-  description = "Public IP of the temporary deploy VM"
+# ========================
+# ✅ Outputs (for sharing with Build Pipeline)
+# ========================
+
+output "primary_vm_public_ip" {
+  value       = azurerm_public_ip.pip_primary.ip_address
+  description = "Public IP of the persistent primary VM"
+}
+
+output "resource_group_name" {
+  value       = azurerm_resource_group.rg.name
+  description = "Name of the shared Resource Group"
+}
+
+output "vnet_name" {
+  value       = azurerm_virtual_network.vnet.name
+  description = "Name of the shared Virtual Network"
+}
+
+output "subnet_id" {
+  value       = azurerm_subnet.subnet.id
+  description = "ID of the shared Subnet"
+}
+
+output "nsg_name" {
+  value       = azurerm_network_security_group.nsg.name
+  description = "Name of the shared Network Security Group"
 }

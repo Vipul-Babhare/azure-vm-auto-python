@@ -25,11 +25,11 @@ jobs:
 
     - name: 📦 Terraform Init
       run: terraform init
-      working-directory: infra/pipeline2
+      working-directory: infra/pipeline1   # changed from pipeline2
 
     - name: 📌 Terraform Apply
       run: terraform apply -auto-approve
-      working-directory: infra/pipeline2
+      working-directory: infra/pipeline1   # changed from pipeline2
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
@@ -39,7 +39,7 @@ jobs:
 
     - name: 🌍 Extract Public IP
       run: |
-        IP=$(terraform -chdir=infra/pipeline2 output -raw public_ip)
+        IP=$(terraform -chdir=infra/pipeline1 output -raw public_ip)   # changed from pipeline2
         echo "VM_IP=$IP" >> $GITHUB_ENV
         echo "ℹ️ Public IP: $IP"
 
