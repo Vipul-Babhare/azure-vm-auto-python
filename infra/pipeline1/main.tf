@@ -6,7 +6,7 @@ provider "azurerm" {
 
 variable "ssh_public_key" {
   type        = string
-  description = "SSH Public Key for the VM"
+  description = "SSH Public Key for the temporary deploy VM"
 }
 
 variable "allowed_ssh_cidr" {
@@ -21,181 +21,72 @@ variable "allowed_ip_for_tf_serving" {
   default     = "0.0.0.0/0"
 }
 
+# Static suffix for unique naming in deploy runs
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
   special = false
 }
 
-resource "azurerm_resource_group" "example" {
-  name     = "test-vm-groupterraf"
-  location = "UK South"
+# --- Reference existing infrastructure from provision pipeline ---
+
+data "azurerm_resource_group" "rg" {
+  name = "test-vm-groupterraf"
 }
 
-resource "azurerm_virtual_network" "example" {
+data "azurerm_virtual_network" "vnet" {
   name                = "test-vnet"
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+  resource_group_name = data.azurerm_resource_group.rg.name
 }
 
-resource "azurerm_subnet" "example" {
+data "azurerm_subnet" "subnet" {
   name                 = "test-subnet"
-  resource_group_name  = azurerm_resource_group.example.name
-  virtual_network_name = azurerm_virtual_network.example.name
-  address_prefixes     = ["10.0.2.0/24"]
+  virtual_network_name = data.azurerm_virtual_network.vnet.name
+  resource_group_name  = data.azurerm_resource_group.rg.name
 }
 
-resource "azurerm_network_security_group" "example" {
+data "azurerm_network_security_group" "nsg" {
   name                = "test-nsg"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
-
-  security_rule {
-    name                       = "Allow-SSH"
-    priority                   = 1001
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = var.allowed_ssh_cidr
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "Allow-TFServing"
-    priority                   = 1002
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "8501"
-    source_address_prefix      = var.allowed_ip_for_tf_serving
-    destination_address_prefix = "*"
-  }
-  
-  security_rule {
-    name                       = "Allow-TFServing-8502"
-    priority                   = 1003
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "8502"
-    source_address_prefix      = var.allowed_ip_for_tf_serving
-    destination_address_prefix = "*"
-  }
-
-
-  security_rule {
-    name                       = "Allow-Prometheus"
-    priority                   = 1004
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "9090"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "Allow-NodeExporter"
-    priority                   = 1005
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "9100"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "Allow-cAdvisor"
-    priority                   = 1006
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "9323"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "Allow-Grafana"
-    priority                   = 1007
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3000"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "Allow-TokenGenerator"
-    priority                   = 1008
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "8082"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "Allow-TokenValidator"
-    priority                   = 1009
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "8083"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
+  resource_group_name = data.azurerm_resource_group.rg.name
 }
 
-resource "azurerm_public_ip" "example" {
-  name                = "myPublicIP"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+# --- Create temporary VM for deploy run ---
+
+resource "azurerm_public_ip" "pip_temp" {
+  name                = "tempPublicIP-${random_string.suffix.result}"
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  domain_name_label   = "vipulvm-${random_string.suffix.result}"
+  domain_name_label   = "tempvm-${random_string.suffix.result}"
 }
 
-resource "azurerm_network_interface" "example" {
-  name                = "test-nic"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+resource "azurerm_network_interface" "nic_temp" {
+  name                = "temp-nic-${random_string.suffix.result}"
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
 
   ip_configuration {
     name                          = "internal"
-    subnet_id                     = azurerm_subnet.example.id
+    subnet_id                     = data.azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.example.id
+    public_ip_address_id          = azurerm_public_ip.pip_temp.id
   }
 }
 
-resource "azurerm_network_interface_security_group_association" "example" {
-  network_interface_id      = azurerm_network_interface.example.id
-  network_security_group_id = azurerm_network_security_group.example.id
+resource "azurerm_network_interface_security_group_association" "nsg_assoc_temp" {
+  network_interface_id      = azurerm_network_interface.nic_temp.id
+  network_security_group_id = data.azurerm_network_security_group.nsg.id
 }
 
-resource "azurerm_linux_virtual_machine" "example" {
-  name                = "test-vm"
-  resource_group_name = azurerm_resource_group.example.name
-  location            = azurerm_resource_group.example.location
+resource "azurerm_linux_virtual_machine" "temp_vm" {
+  name                = "temp-vm-${random_string.suffix.result}"
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
   size                = "Standard_B1s"
   admin_username      = "azureuser"
   network_interface_ids = [
-    azurerm_network_interface.example.id,
+    azurerm_network_interface.nic_temp.id,
   ]
 
   admin_ssh_key {
@@ -216,8 +107,7 @@ resource "azurerm_linux_virtual_machine" "example" {
   }
 }
 
-output "public_ip" {
-  value       = azurerm_public_ip.example.ip_address
-  description = "Public IP of the Azure VM"
-  sensitive   = false
+output "temp_vm_public_ip" {
+  value       = azurerm_public_ip.pip_temp.ip_address
+  description = "Public IP of the temporary deploy VM"
 }
