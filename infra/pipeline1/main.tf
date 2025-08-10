@@ -233,6 +233,12 @@ output "primary_vm_public_ip" {
   description = "Public IP of the persistent primary VM"
 }
 
+# 👇 Added this so build pipeline works without changes
+output "public_ip" {
+  value       = azurerm_public_ip.pip_primary.ip_address
+  description = "Alias output for Build Pipeline compatibility"
+}
+
 output "resource_group_name" {
   value       = azurerm_resource_group.rg.name
   description = "Name of the shared Resource Group"
