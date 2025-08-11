@@ -16,27 +16,27 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
         chmod 600 key.pem
 
-    - name: 📂 Copy Model Files to VM
+    - name: 📂 Copy model files to VM
       run: |
         scp -o StrictHostKeyChecking=no -i key.pem -r models/my_model azureuser@${{ secrets.STATIC_VM_IP }}:/home/azureuser/models/
 
+    - name: 🔍 Verify model files on VM
+      run: |
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ secrets.STATIC_VM_IP }} <<'EOF'
+        echo "📂 Checking model folder contents..."
+        ls -R /home/azureuser/models/my_model || { echo "❌ Model files not found!"; exit 1; }
+        EOF
+
     - name: 🚀 Deploy TensorFlow Model
       run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ secrets.STATIC_VM_IP }} << EOF
-        set -e
-        cd /home/azureuser
-        sudo docker rm -f Tf-serving || true
+        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ secrets.STATIC_VM_IP }} <<'EOF'
+        sudo docker stop Tf-serving || true
+        sudo docker rm Tf-serving || true
         sudo docker run -d \
           --name Tf-serving \
           --network tfnet \
           -p 8520:8501 \
           --mount type=bind,source=/home/azureuser/models/my_model,target=/models/rainfall_model \
           -e MODEL_NAME=rainfall_model \
-          emacski/tensorflow-serving:2.5.1-linux_arm
-
-        echo "⏳ Waiting 10 seconds for TensorFlow Serving to start..."
-        sleep 10
-
-        echo "🔍 Checking if rainfall_model is available..."
-        curl -s http://localhost:8520/v1/models/rainfall_model | jq .
+          tensorflow/serving
         EOF
