@@ -16,37 +16,15 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
         chmod 600 key.pem
 
-    # Copy the model folder from repo to VM
-    - name: 📦 Copy model to VM
-      run: |
-        scp -o StrictHostKeyChecking=no -i key.pem -r models/my_model azureuser@${{ secrets.STATIC_VM_IP }}:/home/azureuser/models/
-
-    # SSH into VM and start TensorFlow Serving
     - name: 🚀 Deploy TensorFlow Model
       run: |
         ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ secrets.STATIC_VM_IP }} <<'EOF'
-        set -e  # Exit if any command fails
-        
-        # Check if model folder exists and has files
-        if [ ! -f "/home/azureuser/models/my_model/1/saved_model.pb" ]; then
-          echo "❌ Model files not found in /home/azureuser/models/my_model/1/"
-          exit 1
-        fi
-
-        echo "✅ Model files found. Starting TensorFlow Serving..."
-
-        # Stop & remove existing container if exists
-        if [ $(sudo docker ps -aq -f name=Tf-serving) ]; then
-          sudo docker rm -f Tf-serving || true
-        fi
-
-        # Run TensorFlow Serving container
+        cd azure-vm-auto-python
         sudo docker run -d \
-          --name Tf-serving \
-          -p 8520:8501 \
-          --mount type=bind,source=/home/azureuser/models/my_model,target=/models/rainfall_model \
-          -e MODEL_NAME=rainfall_model \
-          tensorflow/serving
-
-        echo "✅ TensorFlow Serving started on port 8520"
+        --name tf-serving \
+        --network tfnet \
+        -p 8501:8501 \
+        -v $PWD/models/my_model:/models/my_model \
+        -e MODEL_NAME=my_model \
+        tensorflow/serving
         EOF
