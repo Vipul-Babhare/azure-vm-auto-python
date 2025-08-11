@@ -16,15 +16,17 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
         chmod 600 key.pem
 
+    - name: 📂 Copy Model Files to VM
+      run: |
+        scp -o StrictHostKeyChecking=no -i key.pem -r models/my_model azureuser@${{ secrets.STATIC_VM_IP }}:/home/azureuser/models/
+
     - name: 🚀 Deploy TensorFlow Model
       run: |
         ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ secrets.STATIC_VM_IP }} <<'EOF'
-        cd azure-vm-auto-python
-
-        # Stop and remove old container if running
+        # Stop old container if it exists
         sudo docker rm -f Tf-serving || true
 
-        # Run TensorFlow Serving with your bind mount
+        # Run TensorFlow Serving
         sudo docker run -d \
           --name Tf-serving \
           --network tfnet \
