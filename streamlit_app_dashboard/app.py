@@ -54,7 +54,7 @@ def logout():
 
 # --- Config ---
 MODEL_HOST = os.getenv("MODEL_HOST", "localhost")
-MODEL_PORT = os.getenv("MODEL_PORT", "8083")
+MODEL_PORT = os.getenv("MODEL_PORT", "8520")
 
 MODEL_URL = f"http://{MODEL_HOST}:{MODEL_PORT}/v1/models/rainfall_model:predict"
 PROFILING_URL = f"http://{MODEL_HOST}:{MODEL_PORT}/v1/models/rainfall_model/metadata"
