@@ -31,6 +31,12 @@ variable "rg_name" {
   description = "Resource Group Name"
 }
 
+variable "location" {
+  type        = string
+  description = "Azure location"
+  default     = "UK South"
+}
+
 variable "vnet_name" {
   type        = string
   description = "Virtual Network Name"
@@ -49,23 +55,24 @@ resource "random_string" "suffix" {
 }
 
 # Resource Group
-resource "azurerm_resource_group" "rg" {
-  name     = var.rg_name
-  location = "UK South"
-}
+# Commented out because you already have an existing RG and imported it
+# resource "azurerm_resource_group" "rg" {
+#   name     = var.rg_name
+#   location = var.location
+# }
 
 # Virtual Network
 resource "azurerm_virtual_network" "vnet" {
   name                = var.vnet_name
   address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = var.location
+  resource_group_name = var.rg_name
 }
 
 # Subnet
 resource "azurerm_subnet" "subnet" {
   name                 = "test-subnet"
-  resource_group_name  = azurerm_resource_group.rg.name
+  resource_group_name  = var.rg_name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.2.0/24"]
 }
@@ -73,8 +80,8 @@ resource "azurerm_subnet" "subnet" {
 # Network Security Group
 resource "azurerm_network_security_group" "nsg" {
   name                = "test-nsg"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = var.location
+  resource_group_name = var.rg_name
 
   security_rule {
     name                       = "Allow-SSH"
@@ -200,8 +207,8 @@ resource "azurerm_network_security_group" "nsg" {
 # Public IP (persistent for primary VM)
 resource "azurerm_public_ip" "pip_primary" {
   name                = "${var.vm_name}-pip"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = var.location
+  resource_group_name = var.rg_name
   allocation_method   = "Static"
   sku                 = "Standard"
   domain_name_label   = "${var.vm_name}-${random_string.suffix.result}"
@@ -210,8 +217,8 @@ resource "azurerm_public_ip" "pip_primary" {
 # NIC for primary VM
 resource "azurerm_network_interface" "nic_primary" {
   name                = "${var.vm_name}-nic"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = var.location
+  resource_group_name = var.rg_name
 
   ip_configuration {
     name                          = "internal"
@@ -230,8 +237,8 @@ resource "azurerm_network_interface_security_group_association" "nsg_assoc_prima
 # Persistent primary VM
 resource "azurerm_linux_virtual_machine" "primary_vm" {
   name                = var.vm_name
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  resource_group_name = var.rg_name
+  location            = var.location
   size                = "Standard_B1s"
   admin_username      = "azureuser"
   network_interface_ids = [
@@ -271,7 +278,7 @@ output "public_ip" {
 }
 
 output "resource_group_name" {
-  value       = azurerm_resource_group.rg.name
+  value       = var.rg_name
   description = "Name of the shared Resource Group"
 }
 

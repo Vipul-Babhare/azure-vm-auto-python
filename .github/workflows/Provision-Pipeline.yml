@@ -44,8 +44,7 @@ jobs:
   serve:
     name: Provision & Deploy VM + Containers
     runs-on: ubuntu-latest
-    # Uncomment if you want serve job to wait for import job
-    # needs: import
+    needs: import               # <--- Ensure import completes before serve runs
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v3
@@ -77,6 +76,7 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
           TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
+          TF_VAR_location: ${{ secrets.AZ_LOCATION }}               # <--- Added location here
           TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
           TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
 
