@@ -32,30 +32,18 @@ jobs:
 
       - name: 🔄 Terraform Import Resource Group
         run: |
-          terraform import -input=false \
-            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
-            -var="ssh_public_key=${{ secrets.AZURE_SSH_PUBLIC_KEY }}" \
-            -var="rg_name=${{ secrets.AZ_RG_NAME }}" \
-            -var="vnet_name=${{ secrets.AZ_VNET_NAME }}" \
-            -var="vm_name=${{ secrets.AZ_VM_NAME }}" \
-            azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}
+          terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}
         working-directory: infra/pipeline1
 
       - name: 🔄 Terraform Import Virtual Network
         run: |
-          terraform import -input=false \
-            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
-            -var="ssh_public_key=${{ secrets.AZURE_SSH_PUBLIC_KEY }}" \
-            -var="rg_name=${{ secrets.AZ_RG_NAME }}" \
-            -var="vnet_name=${{ secrets.AZ_VNET_NAME }}" \
-            -var="vm_name=${{ secrets.AZ_VM_NAME }}" \
-            azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }}
+          terraform import azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }}
         working-directory: infra/pipeline1
 
   serve:
     name: Provision & Deploy VM + Containers
     runs-on: ubuntu-latest
-    needs: import               # <--- Ensure import completes before serve runs
+    needs: import
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v3
