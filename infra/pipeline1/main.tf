@@ -54,12 +54,11 @@ resource "random_string" "suffix" {
   special = false
 }
 
-# Resource Group
-# Commented out because you already have an existing RG and imported it
-# resource "azurerm_resource_group" "rg" {
-#   name     = var.rg_name
-#   location = var.location
-# }
+
+resource "azurerm_resource_group" "rg" {
+  name     = var.rg_name
+  location = var.location
+}
 
 # Virtual Network
 resource "azurerm_virtual_network" "vnet" {
