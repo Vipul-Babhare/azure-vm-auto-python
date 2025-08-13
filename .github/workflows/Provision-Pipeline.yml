@@ -5,7 +5,7 @@ on:
 
 jobs:
   import:
-    name: Import Existing Resource Group
+    name: Import Existing Resources
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Checkout code
@@ -39,6 +39,17 @@ jobs:
             -var="vnet_name=${{ secrets.AZ_VNET_NAME }}" \
             -var="vm_name=${{ secrets.AZ_VM_NAME }}" \
             azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}
+        working-directory: infra/pipeline1
+
+      - name: 🔄 Terraform Import Virtual Network
+        run: |
+          terraform import -input=false \
+            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
+            -var="ssh_public_key=${{ secrets.AZURE_SSH_PUBLIC_KEY }}" \
+            -var="rg_name=${{ secrets.AZ_RG_NAME }}" \
+            -var="vnet_name=${{ secrets.AZ_VNET_NAME }}" \
+            -var="vm_name=${{ secrets.AZ_VM_NAME }}" \
+            azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }}
         working-directory: infra/pipeline1
 
   serve:
@@ -76,7 +87,7 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
           TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
-          TF_VAR_location: ${{ secrets.AZ_LOCATION }}               # <--- Added location here
+          TF_VAR_location: ${{ secrets.AZ_LOCATION }}
           TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
           TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
 
