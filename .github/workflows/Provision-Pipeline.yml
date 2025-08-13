@@ -4,126 +4,151 @@ on:
   workflow_dispatch:
 
 jobs:
-  serve:
+  import:
+    name: Import Existing Resource Group
     runs-on: ubuntu-latest
-
     steps:
-    - name: ⬇️ Checkout code
-      uses: actions/checkout@v3
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v3
 
-    - name: ⚙️ Set up Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.6.6
+      - name: ⚙️ Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
 
-    - name: 🔐 Azure Login using Service Principal
-      run: |
-        az login --service-principal \
-          --username ${{ secrets.ARM_CLIENT_ID }} \
-          --password ${{ secrets.ARM_CLIENT_SECRET }} \
-          --tenant ${{ secrets.ARM_TENANT_ID }}
+      - name: 🔐 Azure Login using Service Principal
+        run: |
+          az login --service-principal \
+            --username ${{ secrets.ARM_CLIENT_ID }} \
+            --password ${{ secrets.ARM_CLIENT_SECRET }} \
+            --tenant ${{ secrets.ARM_TENANT_ID }}
 
-    - name: 📦 Terraform Init
-      run: terraform init
-      working-directory: infra/pipeline1
+      - name: 🔄 Terraform Import Resource Group
+        run: terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}
+        working-directory: infra/pipeline1
 
-    - name: 📌 Terraform Apply
-      run: terraform apply -auto-approve
-      working-directory: infra/pipeline1
-      env:
-        ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-        ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
-        ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-        ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-        TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-        TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
-        TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
-        TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
-        TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
+  serve:
+    name: Provision & Deploy VM + Containers
+    runs-on: ubuntu-latest
+    # Optional: Uncomment next line if you want serve to wait for import to finish
+    # needs: import
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v3
 
-    - name: 🌍 Extract Public IP
-      run: |
-        IP=$(terraform -chdir=infra/pipeline1 output -raw public_ip)
-        echo "VM_IP=$IP" >> $GITHUB_ENV
-        echo "ℹ️ Public IP: $IP"
+      - name: ⚙️ Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
 
-    - name: 🕒 Wait for SSH Port
-      run: sleep 30
+      - name: 🔐 Azure Login using Service Principal
+        run: |
+          az login --service-principal \
+            --username ${{ secrets.ARM_CLIENT_ID }} \
+            --password ${{ secrets.ARM_CLIENT_SECRET }} \
+            --tenant ${{ secrets.ARM_TENANT_ID }}
 
-    - name: 🔑 SSH Private Key Setup
-      run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-        chmod 600 key.pem
+      - name: 📦 Terraform Init
+        run: terraform init
+        working-directory: infra/pipeline1
 
-    - name: 📦 Install Docker + Deploy All Containers
-      run: |
-        ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<'EOF'
-          sudo apt update
-          sudo apt install -y docker.io git
+      - name: 📌 Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: infra/pipeline1
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
+          TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
+          TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
+          TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
 
-          git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
-          cd azure-vm-auto-python
+      - name: 🌍 Extract Public IP
+        run: |
+          IP=$(terraform -chdir=infra/pipeline1 output -raw public_ip)
+          echo "VM_IP=$IP" >> $GITHUB_ENV
+          echo "ℹ️ Public IP: $IP"
 
-          sudo docker network create tfnet || true
+      - name: 🕒 Wait for SSH Port
+        run: sleep 30
 
-          sudo docker rm -f tf-serving || true
-          sudo docker run -d \
-            --name tf-serving \
-            --network tfnet \
-            -p 8501:8501 \
-            -v \$PWD/models/my_model:/models/my_model \
-            -e MODEL_NAME=my_model \
-            tensorflow/serving
+      - name: 🔑 SSH Private Key Setup
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
 
-          cd token_generator
-          sudo docker build -t token-generator-image .
-          sudo docker rm -f token_generator || true
-          sudo docker run -d \
-            --name token_generator \
-            --network tfnet \
-            -p 8082:8082 \
-            -e JWT_SECRET_KEY=my-super-secret-key-123 \
-            -e TOKEN_EXPIRATION_HOURS=24 \
-            token-generator-image
-          cd ..
+      - name: 📦 Install Docker + Deploy All Containers
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<'EOF'
+            sudo apt update
+            sudo apt install -y docker.io git
 
-          cd token_validator
-          sudo docker build -t token-validator-image .
-          sudo docker rm -f token_validator || true
-          sudo docker run -d \
-            --name token_validator \
-            --network tfnet \
-            -p 8083:8083 \
-            -e JWT_SECRET_KEY=my-super-secret-key-123 \
-            -e MODEL_SERVING_URL=http://tf-serving:8501/v1/models/my_model:predict \
-            --add-host=host.docker.internal:host-gateway \
-            token-validator-image
-          cd ..
+            git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
+            cd azure-vm-auto-python
 
-          sudo docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
-          sudo docker run -d --name cadvisor -p 9323:8080 \
-            -v /:/rootfs:ro \
-            -v /var/run:/var/run:ro \
-            -v /sys:/sys:ro \
-            -v /var/lib/docker/:/var/lib/docker:ro \
-            -v /dev/disk/:/dev/disk:ro \
-            gcr.io/cadvisor/cadvisor
-          sudo docker run -d --name prometheus -p 9090:9090 \
-            -v \$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
-            prom/prometheus
-          sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
+            sudo docker network create tfnet || true
 
-          cd streamlit_app_dashboard
-          sudo docker build -t streamlit-dashboard .
-          sudo docker rm -f streamlit_dashboard || true
-          sudo docker run -d \
-            --name streamlit_dashboard \
-            --network tfnet \
-            -p 8502:8502 \
-            streamlit-dashboard
-        EOF
+            sudo docker rm -f tf-serving || true
+            sudo docker run -d \
+              --name tf-serving \
+              --network tfnet \
+              -p 8501:8501 \
+              -v \$PWD/models/my_model:/models/my_model \
+              -e MODEL_NAME=my_model \
+              tensorflow/serving
 
-    - name: ✅ Done
-      run: |
-        echo "🎉 VM is ready at ${{ env.VM_IP }}"
-        echo "📊 Streamlit Dashboard: http://${{ env.VM_IP }}:8502"
+            cd token_generator
+            sudo docker build -t token-generator-image .
+            sudo docker rm -f token_generator || true
+            sudo docker run -d \
+              --name token_generator \
+              --network tfnet \
+              -p 8082:8082 \
+              -e JWT_SECRET_KEY=my-super-secret-key-123 \
+              -e TOKEN_EXPIRATION_HOURS=24 \
+              token-generator-image
+            cd ..
+
+            cd token_validator
+            sudo docker build -t token-validator-image .
+            sudo docker rm -f token_validator || true
+            sudo docker run -d \
+              --name token_validator \
+              --network tfnet \
+              -p 8083:8083 \
+              -e JWT_SECRET_KEY=my-super-secret-key-123 \
+              -e MODEL_SERVING_URL=http://tf-serving:8501/v1/models/my_model:predict \
+              --add-host=host.docker.internal:host-gateway \
+              token-validator-image
+            cd ..
+
+            sudo docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
+            sudo docker run -d --name cadvisor -p 9323:8080 \
+              -v /:/rootfs:ro \
+              -v /var/run:/var/run:ro \
+              -v /sys:/sys:ro \
+              -v /var/lib/docker/:/var/lib/docker:ro \
+              -v /dev/disk/:/dev/disk:ro \
+              gcr.io/cadvisor/cadvisor
+            sudo docker run -d --name prometheus -p 9090:9090 \
+              -v \$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
+              prom/prometheus
+            sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
+
+            cd streamlit_app_dashboard
+            sudo docker build -t streamlit-dashboard .
+            sudo docker rm -f streamlit_dashboard || true
+            sudo docker run -d \
+              --name streamlit_dashboard \
+              --network tfnet \
+              -p 8502:8502 \
+              streamlit-dashboard
+          EOF
+
+      - name: ✅ Done
+        run: |
+          echo "🎉 VM is ready at ${{ env.VM_IP }}"
+          echo "📊 Streamlit Dashboard: http://${{ env.VM_IP }}:8502"
