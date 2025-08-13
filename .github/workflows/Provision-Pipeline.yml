@@ -23,14 +23,21 @@ jobs:
             --password ${{ secrets.ARM_CLIENT_SECRET }} \
             --tenant ${{ secrets.ARM_TENANT_ID }}
 
+      - name: ✅ Confirm Azure Login
+        run: az account show
+
+      - name: 🔄 Terraform Init
+        run: terraform init -input=false
+        working-directory: infra/pipeline1
+
       - name: 🔄 Terraform Import Resource Group
-        run: terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}
+        run: terraform import -input=false azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}
         working-directory: infra/pipeline1
 
   serve:
     name: Provision & Deploy VM + Containers
     runs-on: ubuntu-latest
-    # Optional: Uncomment next line if you want serve to wait for import to finish
+    # Uncomment the next line if you want serve to wait for import to finish
     # needs: import
     steps:
       - name: ⬇️ Checkout code
