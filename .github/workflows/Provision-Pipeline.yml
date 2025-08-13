@@ -31,13 +31,20 @@ jobs:
         working-directory: infra/pipeline1
 
       - name: 🔄 Terraform Import Resource Group
-        run: terraform import -input=false azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}
+        run: |
+          terraform import -input=false \
+            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
+            -var="ssh_public_key=${{ secrets.AZURE_SSH_PUBLIC_KEY }}" \
+            -var="rg_name=${{ secrets.AZ_RG_NAME }}" \
+            -var="vnet_name=${{ secrets.AZ_VNET_NAME }}" \
+            -var="vm_name=${{ secrets.AZ_VM_NAME }}" \
+            azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}
         working-directory: infra/pipeline1
 
   serve:
     name: Provision & Deploy VM + Containers
     runs-on: ubuntu-latest
-    # Uncomment the next line if you want serve to wait for import to finish
+    # Uncomment if you want serve job to wait for import job
     # needs: import
     steps:
       - name: ⬇️ Checkout code
