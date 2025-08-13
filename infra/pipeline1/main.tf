@@ -1,7 +1,12 @@
 provider "azurerm" {
   features {}
-  subscription_id = "ab16a6e7-fa55-4581-b4dd-5602b818cd8e"
+  subscription_id = var.subscription_id
   use_cli         = true
+}
+
+variable "subscription_id" {
+  type        = string
+  description = "Azure Subscription ID"
 }
 
 variable "ssh_public_key" {
@@ -21,6 +26,21 @@ variable "allowed_ip_for_tf_serving" {
   default     = "0.0.0.0/0"
 }
 
+variable "rg_name" {
+  type        = string
+  description = "Resource Group Name"
+}
+
+variable "vnet_name" {
+  type        = string
+  description = "Virtual Network Name"
+}
+
+variable "vm_name" {
+  type        = string
+  description = "Virtual Machine Name"
+}
+
 # Static suffix so names remain predictable
 resource "random_string" "suffix" {
   length  = 6
@@ -30,13 +50,13 @@ resource "random_string" "suffix" {
 
 # Resource Group
 resource "azurerm_resource_group" "rg" {
-  name     = "test-vm-groupterraf"
+  name     = var.rg_name
   location = "UK South"
 }
 
 # Virtual Network
 resource "azurerm_virtual_network" "vnet" {
-  name                = "test-vnet"
+  name                = var.vnet_name
   address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
@@ -162,22 +182,34 @@ resource "azurerm_network_security_group" "nsg" {
     destination_port_range     = "8083"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
+  } 
+
+  security_rule {
+    name                       = "Allow-wati"
+    priority                   = 1010
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8520"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
   }
 }
 
 # Public IP (persistent for primary VM)
 resource "azurerm_public_ip" "pip_primary" {
-  name                = "primaryPublicIP"
+  name                = "${var.vm_name}-pip"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  domain_name_label   = "vipulvm-${random_string.suffix.result}"
+  domain_name_label   = "${var.vm_name}-${random_string.suffix.result}"
 }
 
 # NIC for primary VM
 resource "azurerm_network_interface" "nic_primary" {
-  name                = "primary-nic"
+  name                = "${var.vm_name}-nic"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
@@ -197,7 +229,7 @@ resource "azurerm_network_interface_security_group_association" "nsg_assoc_prima
 
 # Persistent primary VM
 resource "azurerm_linux_virtual_machine" "primary_vm" {
-  name                = "primary-vm"
+  name                = var.vm_name
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   size                = "Standard_B1s"
@@ -225,7 +257,7 @@ resource "azurerm_linux_virtual_machine" "primary_vm" {
 }
 
 # ========================
-# ✅ Outputs (for sharing with Build Pipeline)
+# ✅ Outputs
 # ========================
 
 output "primary_vm_public_ip" {
@@ -233,7 +265,6 @@ output "primary_vm_public_ip" {
   description = "Public IP of the persistent primary VM"
 }
 
-# 👇 Added this so build pipeline works without changes
 output "public_ip" {
   value       = azurerm_public_ip.pip_primary.ip_address
   description = "Alias output for Build Pipeline compatibility"

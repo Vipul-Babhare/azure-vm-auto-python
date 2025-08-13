@@ -25,21 +25,25 @@ jobs:
 
     - name: 📦 Terraform Init
       run: terraform init
-      working-directory: infra/pipeline1   # changed from pipeline2
+      working-directory: infra/pipeline1
 
     - name: 📌 Terraform Apply
       run: terraform apply -auto-approve
-      working-directory: infra/pipeline1   # changed from pipeline2
+      working-directory: infra/pipeline1
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+        TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
         TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
+        TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
+        TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
+        TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
 
     - name: 🌍 Extract Public IP
       run: |
-        IP=$(terraform -chdir=infra/pipeline1 output -raw public_ip)   # changed from pipeline2
+        IP=$(terraform -chdir=infra/pipeline1 output -raw public_ip)
         echo "VM_IP=$IP" >> $GITHUB_ENV
         echo "ℹ️ Public IP: $IP"
 
@@ -57,14 +61,11 @@ jobs:
           sudo apt update
           sudo apt install -y docker.io git
 
-          # Clone repo
           git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
           cd azure-vm-auto-python
 
-          # Create shared Docker network
           sudo docker network create tfnet || true
 
-          # --- TensorFlow Serving Container ---
           sudo docker rm -f tf-serving || true
           sudo docker run -d \
             --name tf-serving \
@@ -74,7 +75,6 @@ jobs:
             -e MODEL_NAME=my_model \
             tensorflow/serving
 
-          # --- Token Generator ---
           cd token_generator
           sudo docker build -t token-generator-image .
           sudo docker rm -f token_generator || true
@@ -87,7 +87,6 @@ jobs:
             token-generator-image
           cd ..
 
-          # --- Token Validator ---
           cd token_validator
           sudo docker build -t token-validator-image .
           sudo docker rm -f token_validator || true
@@ -101,7 +100,6 @@ jobs:
             token-validator-image
           cd ..
 
-          # --- Monitoring Stack ---
           sudo docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
           sudo docker run -d --name cadvisor -p 9323:8080 \
             -v /:/rootfs:ro \
@@ -115,7 +113,6 @@ jobs:
             prom/prometheus
           sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
 
-          # --- Streamlit Dashboard ---
           cd streamlit_app_dashboard
           sudo docker build -t streamlit-dashboard .
           sudo docker rm -f streamlit_dashboard || true
