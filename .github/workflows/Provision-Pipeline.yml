@@ -37,7 +37,7 @@ jobs:
 
       - name: 🔄 Terraform Import Virtual Network
         run: |
-          terraform import azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }}
+          terraform import -input=false azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }}
         working-directory: infra/pipeline1
 
   serve:
