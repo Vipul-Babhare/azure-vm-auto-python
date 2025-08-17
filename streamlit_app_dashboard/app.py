@@ -14,7 +14,7 @@ import os
 # --- Authentication Config ---
 VALID_CREDENTIALS = {
     "admin": "password123",
-    "tester": "test2024", 
+    "tester": "test2024",
     "user": "mypassword"
 }
 
@@ -31,7 +31,6 @@ def login_form():
     """Display login form"""
     st.title("🔐 Rainfall Model Dashboard - Login")
     st.markdown("Please enter your credentials to access the testing dashboard.")
-
     with st.form("login_form"):
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
@@ -56,46 +55,8 @@ def logout():
     st.rerun()
 
 # --- Config ---
-def get_model_host():
-    """Dynamically determine model host IP"""
-    # First, try environment variable (for explicit override)
-    model_host = os.getenv("MODEL_HOST")
-    if model_host and model_host.strip():
-        return model_host.strip()
-    
-    # Check if we're running in Azure VM
-    try:
-        import requests
-        azure_metadata_url = os.getenv("AZURE_METADATA_URL", 
-            "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2021-02-01&format=text")
-        
-        response = requests.get(azure_metadata_url, 
-                              headers={"Metadata": "true"}, 
-                              timeout=5)
-        if response.status_code == 200:
-            public_ip = response.text.strip()
-            if public_ip and public_ip != "":
-                # Test if model is accessible via localhost first (same VM)
-                try:
-                    test_response = requests.get(f"http://localhost:8520/v1/models", timeout=3)
-                    if test_response.status_code in [200, 404]:  # 404 is OK, means server is responding
-                        print(f"Model accessible via localhost, using localhost instead of {public_ip}")
-                        return "localhost"
-                except:
-                    pass
-                
-                # If localhost doesn't work, use public IP
-                print(f"Using public IP from Azure metadata: {public_ip}")
-                return public_ip
-    except Exception as e:
-        print(f"Failed to get Azure metadata: {e}")
-    
-    # Fallback to localhost for local development
-    return "localhost"
-
-MODEL_HOST = get_model_host()
-MODEL_PORT = os.getenv("MODEL_PORT", "8520")
-
+MODEL_HOST = os.getenv("MODEL_HOST", "Tf-serving")  # Use container name as default
+MODEL_PORT = os.getenv("MODEL_PORT", "8501")  # Use internal Docker port as default
 MODEL_URL = f"http://{MODEL_HOST}:{MODEL_PORT}/v1/models/rainfall_model:predict"
 PROFILING_URL = f"http://{MODEL_HOST}:{MODEL_PORT}/v1/models"
 
@@ -104,9 +65,7 @@ def run_inference_with_detailed_timing(payload: Dict[str, Any]) -> Dict[str, Any
     """Run inference with detailed timing breakdown"""
     timings = {}
     prep_start = time.time()
-    # Removed unused json_payload variable
     timings['request_preparation'] = time.time() - prep_start
-
     network_start = time.time()
     try:
         response = requests.post(MODEL_URL, json=payload, timeout=10)
@@ -152,7 +111,7 @@ def throughput_test(batch_size: int, num_requests: int, max_workers: int = 10) -
         futures = [executor.submit(run_inference, payload) for _ in range(num_requests)]
         for f in concurrent.futures.as_completed(futures):
             results.append(f.result())
-    
+
     latencies = [r["latency"] for r in results if r["latency"] is not None]
     throughput = len(latencies) / sum(latencies) if latencies else 0
     stats = {
@@ -171,16 +130,15 @@ def profile_inference_breakdown(num_samples: int = 10) -> Tuple[Optional[pd.Data
     """Profile inference timing breakdown - FIXED: Consistent return types"""
     results = []
     payload = batch_payload(1)
-    
+
     for _ in range(num_samples):
         result = run_inference_with_detailed_timing(payload)
         if result["success"]:
             results.append(result["timings"])
-    
-    # Always return a tuple for consistency
+
     if not results:
         return None, None
-    
+
     df = pd.DataFrame(results)
     stats = {
         'component': list(df.columns),
@@ -194,13 +152,10 @@ def profile_inference_breakdown(num_samples: int = 10) -> Tuple[Optional[pd.Data
 def test_model_connectivity():
     """Test basic model connectivity"""
     try:
-        # First try to get model metadata
         response = requests.get(f"http://{MODEL_HOST}:{MODEL_PORT}/v1/models", timeout=5)
         if response.status_code == 200:
             return {"status": "online", "details": "Model server responding"}
         elif response.status_code == 400 and "Missing model name" in response.text:
-            # This is actually OK - server is responding, just needs model name
-            # Try with specific model
             model_response = requests.get(f"http://{MODEL_HOST}:{MODEL_PORT}/v1/models/rainfall_model", timeout=5)
             if model_response.status_code == 200:
                 return {"status": "online", "details": "Model loaded and available"}
@@ -219,7 +174,7 @@ def test_model_connectivity():
 def smoke_test_tab():
     """Smoke test tab implementation"""
     st.subheader("🧪 Smoke Test")
-    
+
     col1, col2 = st.columns([2, 1])
     with col1:
         st.info("Test basic model connectivity and response validation")
@@ -228,16 +183,14 @@ def smoke_test_tab():
             with st.spinner("Running smoke test..."):
                 test_payload = batch_payload(1)
                 result = run_inference_with_detailed_timing(test_payload)
-                
+
                 if result["success"]:
                     st.success("✅ Smoke test passed!")
-                    
-                    # Show prediction result
+
                     predictions = result["result"].get("predictions", [])
                     if predictions:
                         st.metric("🌧️ Rainfall Prediction", f"{predictions[0][0]:.2f} mm")
-                    
-                    # Show timing breakdown
+
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("Request Prep", f"{result['timings']['request_preparation']*1000:.1f} ms")
@@ -245,7 +198,7 @@ def smoke_test_tab():
                         st.metric("Network Time", f"{result['timings']['total_request']*1000:.1f} ms")
                     with col3:
                         st.metric("Processing", f"{result['timings']['response_processing']*1000:.1f} ms")
-                    
+
                     with st.expander("📋 Full Response"):
                         st.json(result["result"])
                 else:
@@ -253,7 +206,7 @@ def smoke_test_tab():
                     if "Connection refused" in error_msg or "Connection Error" in str(result.get('status_code', '')):
                         st.error("❌ **TensorFlow model URL is unreachable/unavailable**")
                         st.warning(f"Please ensure your TensorFlow Serving model is running on `{MODEL_HOST}:{MODEL_PORT}`")
-                        
+
                         with st.expander("🛠️ Quick Troubleshooting Guide"):
                             st.markdown(f"""
                             **Steps to resolve:**
@@ -261,30 +214,30 @@ def smoke_test_tab():
                                ```bash
                                docker ps | grep tensorflow
                                ```
-                            
+
                             2. **Verify the port mapping** - Make sure it's running on port `{MODEL_PORT}`:
                                ```bash
                                netstat -tulpn | grep {MODEL_PORT}
                                ```
-                            
-                            3. **Test direct connection**: 
+
+                            3. **Test direct connection**:
                                ```bash
                                curl http://{MODEL_HOST}:{MODEL_PORT}/v1/models
                                ```
-                            
+
                             4. **Test prediction directly**:
                                ```bash
-                               curl -X POST http://{MODEL_HOST}:{MODEL_PORT}/v1/models/rainfall_model:predict \\
+                               curl -X POST http://{MODEL_HOST}:{MODEL_PORT}/v1/models/rainfall_model\:predict \\
                                  -H "Content-Type: application/json" \\
                                  -d '{{"instances": [[1, 45, 4, 30, 90]]}}'
                                ```
-                            
+
                             **Current Configuration:**
                             - Host: `{MODEL_HOST}`
                             - Port: `{MODEL_PORT}`
                             - Model URL: `{MODEL_URL}`
                             """)
-                        
+
                         with st.expander("🔍 Technical Details"):
                             st.code(error_msg)
                     elif result.get('status_code') and str(result['status_code']).startswith('4'):
@@ -305,7 +258,7 @@ def smoke_test_tab():
 def performance_test_tab():
     """Performance test tab implementation"""
     st.subheader("⚡ Performance Test")
-    
+
     col1, col2, col3 = st.columns(3)
     with col1:
         batch_size = st.number_input("Batch Size", min_value=1, max_value=100, value=10)
@@ -313,19 +266,17 @@ def performance_test_tab():
         num_requests = st.number_input("Number of Requests", min_value=1, max_value=1000, value=50)
     with col3:
         max_workers = st.number_input("Concurrent Workers", min_value=1, max_value=50, value=10)
-    
+
     if st.button("🚀 Run Performance Test", use_container_width=True):
         with st.spinner("Running performance test..."):
             stats, results = throughput_test(batch_size, num_requests, max_workers)
-            
-            # Check if any results were successful
+
             successful_results = [r for r in results if r["latency"] is not None]
-            
+
             if not successful_results:
                 st.error("❌ **Performance test failed - TensorFlow model unreachable**")
                 st.warning(f"Please ensure your TensorFlow Serving model is running on `{MODEL_HOST}:{MODEL_PORT}`")
-                
-                # Show sample error for debugging
+
                 error_sample = next((r for r in results if "Connection refused" in str(r.get("response", ""))), None)
                 if error_sample:
                     with st.expander("🔍 Connection Error Details"):
@@ -340,62 +291,56 @@ def performance_test_tab():
                     st.metric("Max Latency", f"{stats['max_latency']:.3f}s" if stats['max_latency'] else "N/A")
                 with col4:
                     st.metric("Throughput", f"{stats['throughput']:.2f} req/s")
-                
-                # Show success/failure breakdown
+
                 col1, col2 = st.columns(2)
                 with col1:
                     st.metric("✅ Successful", stats['successful_requests'])
                 with col2:
                     st.metric("❌ Failed", stats['failed_requests'])
-                
+
                 if stats['failed_requests'] > 0:
                     st.warning(f"⚠️ {stats['failed_requests']} out of {stats['num_requests']} requests failed")
 
 def batch_comparison_tab():
     """Batch analysis tab implementation"""
     st.subheader("📊 Batch Analysis")
-    
+
     st.info("Compare performance across different batch sizes")
-    
+
     batch_sizes = st.multiselect(
         "Select batch sizes to compare",
         options=[1, 5, 10, 20, 50, 100],
         default=[1, 10, 50]
     )
-    
+
     num_requests = st.slider("Requests per batch size", 1, 100, 20)
-    
+
     if st.button("🚀 Run Batch Comparison", use_container_width=True) and batch_sizes:
         comparison_results = []
         progress_bar = st.progress(0)
-        
-        # Track if any tests succeed
+
         any_success = False
-        
+
         for i, batch_size in enumerate(batch_sizes):
             with st.spinner(f"Testing batch size {batch_size}..."):
                 stats, results = throughput_test(batch_size, num_requests, 5)
                 comparison_results.append(stats)
-                
-                # Check if this batch had any successful requests
+
                 if stats['avg_latency'] is not None:
                     any_success = True
-                    
+
                 progress_bar.progress((i + 1) / len(batch_sizes))
-        
+
         if not any_success:
             st.error("❌ **Batch comparison failed - TensorFlow model unreachable**")
             st.warning(f"Please ensure your TensorFlow Serving model is running on `{MODEL_HOST}:{MODEL_PORT}`")
         else:
-            # Display results
             df_results = pd.DataFrame(comparison_results)
             st.dataframe(df_results, use_container_width=True)
-            
-            # Create visualization
+
             if len(comparison_results) > 1:
                 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-                
-                # Latency comparison
+
                 valid_results = df_results[df_results['avg_latency'].notna()]
                 if not valid_results.empty:
                     ax1.plot(valid_results['batch_size'], valid_results['avg_latency'], marker='o', label='Avg Latency')
@@ -405,38 +350,35 @@ def batch_comparison_tab():
                     ax1.set_title('Latency vs Batch Size')
                     ax1.legend()
                     ax1.grid(True, alpha=0.3)
-                    
-                    # Throughput comparison
+
                     ax2.plot(valid_results['batch_size'], valid_results['throughput'], marker='o', color='green')
                     ax2.set_xlabel('Batch Size')
                     ax2.set_ylabel('Throughput (req/s)')
                     ax2.set_title('Throughput vs Batch Size')
                     ax2.grid(True, alpha=0.3)
-                
+
                 st.pyplot(fig)
 
 def profiling_tab():
     """Advanced profiling tab implementation"""
     st.subheader("🔍 Advanced Profiling")
-    
+
     col1, col2 = st.columns([2, 1])
     with col1:
         st.info("Analyze detailed timing breakdown of inference pipeline")
         num_samples = st.slider("Number of samples", 5, 50, 20)
-    
+
     with col2:
         if st.button("🚀 Run Profiling", use_container_width=True):
             with st.spinner("Profiling inference pipeline..."):
                 stats_df, raw_df = profile_inference_breakdown(num_samples)
-                
+
                 if stats_df is not None and raw_df is not None:
                     st.success("✅ Profiling completed!")
-                    
-                    # Display timing statistics
+
                     st.subheader("📊 Timing Statistics")
                     st.dataframe(stats_df, use_container_width=True)
-                    
-                    # Create visualization
+
                     fig, ax = plt.subplots(figsize=(10, 6))
                     x_pos = np.arange(len(stats_df))
                     bars = ax.bar(x_pos, stats_df['avg_time_ms'], yerr=stats_df['std_time_ms'], capsize=5)
@@ -446,17 +388,15 @@ def profiling_tab():
                     ax.set_xticks(x_pos)
                     ax.set_xticklabels(stats_df['component'], rotation=45)
                     ax.grid(True, alpha=0.3)
-                    
-                    # Add value labels on bars
+
                     for i, bar in enumerate(bars):
                         height = bar.get_height()
                         ax.text(bar.get_x() + bar.get_width()/2., height + stats_df['std_time_ms'].iloc[i],
                                f'{height:.2f}ms', ha='center', va='bottom')
-                    
+
                     plt.tight_layout()
                     st.pyplot(fig)
-                    
-                    # Show raw data
+
                     with st.expander("📋 Raw Timing Data"):
                         st.dataframe(raw_df, use_container_width=True)
                 else:
@@ -466,7 +406,7 @@ def profiling_tab():
 def reports_tab():
     """Reports tab implementation"""
     st.subheader("📥 Reports")
-    
+
     col1, col2 = st.columns(2)
     with col1:
         st.info("Export test results and generate reports")
@@ -474,21 +414,19 @@ def reports_tab():
             "Select report type",
             ["Performance Summary", "Batch Analysis", "Profiling Report", "Full Test Suite"]
         )
-    
+
     with col2:
         st.markdown("### Quick Actions")
         if st.button("📊 Generate Sample Report", use_container_width=True):
-            # Generate a sample report
             sample_data = {
                 'Metric': ['Avg Latency', 'P95 Latency', 'Throughput', 'Success Rate'],
                 'Value': ['0.125s', '0.234s', '45.2 req/s', '99.8%'],
                 'Status': ['✅ Good', '⚠️ Fair', '✅ Good', '✅ Excellent']
             }
-            
+
             st.subheader(f"📋 {report_type}")
             st.dataframe(pd.DataFrame(sample_data), use_container_width=True)
-            
-            # Create download link for CSV
+
             csv = pd.DataFrame(sample_data).to_csv(index=False)
             st.download_button(
                 label="💾 Download CSV",
@@ -508,7 +446,6 @@ def main_dashboard():
         st.markdown(f"**Welcome, {st.session_state.get('username', 'User')}!**")
         if st.button("🚪 Logout", use_container_width=True):
             logout()
-
     # Configuration section
     with st.expander("⚙️ Model Configuration"):
         col1, col2, col3 = st.columns(3)
@@ -518,9 +455,8 @@ def main_dashboard():
             st.code(f"PORT: {MODEL_PORT}")
         with col3:
             st.code(f"Model: rainfall_model")
-        
-        st.info("💡 To change host/port, set environment variables: `MODEL_HOST` and `MODEL_PORT`")
 
+        st.info("💡 To change host/port, set environment variables: `MODEL_HOST` and `MODEL_PORT`")
     # Model status check
     with st.container():
         col1, col2, col3 = st.columns(3)
@@ -534,21 +470,19 @@ def main_dashboard():
                 st.warning("🟡 Model Slow")
             else:
                 st.error("🔴 Model Error")
-        
+
         with col2:
             st.info(f"🌐 Host: {MODEL_HOST}:{MODEL_PORT}")
         with col3:
             st.info(f"🕒 Last Check: {time.strftime('%H:%M:%S')}")
-
     # Main tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🧪 Smoke Test", 
-        "⚡ Performance", 
-        "📊 Batch Analysis", 
-        "🔍 Advanced Profiling", 
+        "🧪 Smoke Test",
+        "⚡ Performance",
+        "📊 Batch Analysis",
+        "🔍 Advanced Profiling",
         "📥 Reports"
     ])
-
     with tab1:
         smoke_test_tab()
     with tab2:
@@ -559,35 +493,30 @@ def main_dashboard():
         profiling_tab()
     with tab5:
         reports_tab()
-
     st.markdown("---")
     st.caption("Built for TensorFlow Serving Inference Analysis 🚀")
 
 # --- Main ---
 def main():
     """Main application entry point"""
-    # Initialize session state
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
     if "username" not in st.session_state:
         st.session_state["username"] = None
-    
-    # Show login or dashboard based on authentication
+
     if not st.session_state["authenticated"]:
         login_form()
     else:
         main_dashboard()
 
 if __name__ == "__main__":
-    # Configure Streamlit page
     st.set_page_config(
         page_title="Rainfall Model Testing Dashboard",
         page_icon="🔍",
         layout="wide",
         initial_sidebar_state="collapsed"
     )
-    
-    # Custom CSS styling
+
     st.markdown("""
     <style>
     .main > div { padding-top: 1rem; }
@@ -598,6 +527,5 @@ if __name__ == "__main__":
     .stSuccess, .stError, .stWarning, .stInfo { margin-top: 1rem; margin-bottom: 1rem; }
     </style>
     """, unsafe_allow_html=True)
-    
+
     main()
-    
