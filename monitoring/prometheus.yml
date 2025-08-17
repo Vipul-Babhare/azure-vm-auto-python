@@ -13,3 +13,20 @@ scrape_configs:
   - job_name: 'docker'
     static_configs:
       - targets: ['cadvisor:8080']
+
+  - job_name: 'tensorflow-serving'
+    metrics_path: '/v1/models/rainfall_model'
+    static_configs:
+      - targets: ['Tf-serving:8501']
+
+  - job_name: 'streamlit'
+    static_configs:
+      - targets: ['streamlit_dashboard:8502']
+
+  - job_name: 'token-generator'
+    static_configs:
+      - targets: ['token_generator:8082']
+
+  - job_name: 'token-validator'
+    static_configs:
+      - targets: ['token_validator:8083']
