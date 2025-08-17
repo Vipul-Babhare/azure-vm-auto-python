@@ -1,8 +1,6 @@
 name: 🛠️ Provision-Pipeline
-
 on:
   workflow_dispatch:
-
 jobs:
   serve:
     name: Provision & Deploy VM + Containers
@@ -10,26 +8,21 @@ jobs:
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v3
-
       - name: ⚙️ Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
-
       - name: 🔐 Azure Login using Service Principal
         run: |
           az login --service-principal \
             --username ${{ secrets.ARM_CLIENT_ID }} \
             --password ${{ secrets.ARM_CLIENT_SECRET }} \
             --tenant ${{ secrets.ARM_TENANT_ID }}
-
       - name: ✅ Confirm Azure Login
         run: az account show
-
       - name: 📦 Terraform Init
         run: terraform init -input=false
         working-directory: infra/pipeline1
-
       - name: 🔄 Import Existing Resources
         run: |
           terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }} || true
@@ -46,7 +39,6 @@ jobs:
           TF_VAR_location: ${{ secrets.AZ_LOCATION }}
           TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
           TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
-
       - name: 📌 Terraform Apply
         run: terraform apply -auto-approve
         working-directory: infra/pipeline1
@@ -61,41 +53,33 @@ jobs:
           TF_VAR_location: ${{ secrets.AZ_LOCATION }}
           TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
           TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
-
       - name: 🌍 Extract Public IP
         run: |
           IP=$(terraform -chdir=infra/pipeline1 output -raw public_ip)
           echo "VM_IP=$IP" >> $GITHUB_ENV
           echo "ℹ️ Public IP: $IP"
-
       - name: 🕒 Wait for SSH Port
         run: sleep 30
-
       - name: 🔑 SSH Private Key Setup
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
           chmod 600 key.pem
-
       - name: 📦 Install Docker + Deploy All Containers
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<'EOF'
             sudo apt update
             sudo apt install -y docker.io git
-
             git clone https://github.com/Vipul-Babhare/azure-vm-auto-python.git || true
             cd azure-vm-auto-python
-
             sudo docker network create tfnet || true
-
             sudo docker rm -f tf-serving || true
             sudo docker run -d \
               --name tf-serving \
               --network tfnet \
               -p 8501:8501 \
-              -v \$PWD/models/my_model:/models/my_model \
+              -v $PWD/models/my_model:/models/my_model \
               -e MODEL_NAME=my_model \
               tensorflow/serving
-
             cd token_generator
             sudo docker build -t token-generator-image .
             sudo docker rm -f token_generator || true
@@ -107,7 +91,6 @@ jobs:
               -e TOKEN_EXPIRATION_HOURS=24 \
               token-generator-image
             cd ..
-
             cd token_validator
             sudo docker build -t token-validator-image .
             sudo docker rm -f token_validator || true
@@ -120,20 +103,18 @@ jobs:
               --add-host=host.docker.internal:host-gateway \
               token-validator-image
             cd ..
-
-            sudo docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
-            sudo docker run -d --name cadvisor -p 9323:8080 \
+            sudo docker run -d --name node-exporter --network tfnet -p 9100:9100 prom/node-exporter
+            sudo docker run -d --name cadvisor --network tfnet -p 9323:8080 \
               -v /:/rootfs:ro \
               -v /var/run:/var/run:ro \
               -v /sys:/sys:ro \
               -v /var/lib/docker/:/var/lib/docker:ro \
               -v /dev/disk/:/dev/disk:ro \
               gcr.io/cadvisor/cadvisor
-            sudo docker run -d --name prometheus -p 9090:9090 \
-              -v \$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
+            sudo docker run -d --name prometheus --network tfnet -p 9090:9090 \
+              -v $PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
               prom/prometheus
-            sudo docker run -d --name grafana -p 3000:3000 grafana/grafana
-
+            sudo docker run -d --name grafana --network tfnet -p 3000:3000 grafana/grafana
             cd streamlit_app_dashboard
             sudo docker build -t streamlit-dashboard .
             sudo docker rm -f streamlit_dashboard || true
@@ -143,7 +124,6 @@ jobs:
               -p 8502:8502 \
               streamlit-dashboard
           EOF
-
       - name: ✅ Done
         run: |
           echo "🎉 VM is ready at ${{ env.VM_IP }}"
