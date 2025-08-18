@@ -34,10 +34,30 @@ jobs:
         run: terraform init -input=false
         working-directory: infra/pipeline1
 
+      - name: Debug Secrets
+        run: |
+          echo "Resource Group Name: ${{ secrets.AZ_RG_NAME }}"
+          echo "Virtual Network Name: ${{ secrets.AZ_VNET_NAME }}"
+
       - name: 🔄 Import Existing Resources
         run: |
-          terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }} || true
-          terraform import azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }} || true
+          echo "Attempting to import resource group..."
+          terraform import -var-file="vars.tfvars" azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }} || {
+            echo "Failed to import resource group. Checking if it exists..."
+            az group exists --name ${{ secrets.AZ_RG_NAME }} || {
+              echo "Resource group does not exist."
+              exit 1
+            }
+          }
+
+          echo "Attempting to import virtual network..."
+          terraform import -var-file="vars.tfvars" azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }} || {
+            echo "Failed to import virtual network. Checking if it exists..."
+            az network vnet show --name ${{ secrets.AZ_VNET_NAME }} --resource-group ${{ secrets.AZ_RG_NAME }} || {
+              echo "Virtual network does not exist."
+              exit 1
+            }
+          }
         working-directory: infra/pipeline1
         env:
           ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
@@ -98,7 +118,7 @@ jobs:
               --network tfnet \
               -p 8082:8082 \
               -e JWT_SECRET_KEY=my-super-secret-key-123 \
-              -e TOKEN_EXPIR5ION_HOURS=24 \
+              -e TOKEN_EXPIRATION_HOURS=24 \
               token-generator-image
             cd ..
             cd token_validator
