@@ -6,23 +6,44 @@ jobs:
     name: Provision & Deploy VM + Containers
     runs-on: ubuntu-latest
     steps:
+      - name: 📧 Notify Pipeline Start
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.sendgrid.net
+          server_port: 587
+          username: apikey
+          password: ${{ secrets.SENDGRID_API_KEY }}
+          subject: "🚀 Pipeline Started: ${{ github.workflow }}"
+          body: |
+            Your pipeline has started!
+            - Triggered by: ${{ github.actor }}
+            - Repository: ${{ github.repository }}
+            - Workflow: ${{ github.workflow }}
+          to: ${{ secrets.SENDGRID_RECEIVER_EMAIL }}
+          from: ${{ secrets.SENDGRID_SENDER_EMAIL }}
+
       - name: ⬇️ Checkout code
         uses: actions/checkout@v3
+
       - name: ⚙️ Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
+
       - name: 🔐 Azure Login using Service Principal
         run: |
           az login --service-principal \
             --username ${{ secrets.ARM_CLIENT_ID }} \
             --password ${{ secrets.ARM_CLIENT_SECRET }} \
             --tenant ${{ secrets.ARM_TENANT_ID }}
+
       - name: ✅ Confirm Azure Login
         run: az account show
+
       - name: 📦 Terraform Init
         run: terraform init -input=false
         working-directory: infra/pipeline1
+
       - name: 🔄 Import Existing Resources
         run: |
           terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }} || true
@@ -39,6 +60,7 @@ jobs:
           TF_VAR_location: ${{ secrets.AZ_LOCATION }}
           TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
           TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
+
       - name: 📌 Terraform Apply
         run: terraform apply -auto-approve
         working-directory: infra/pipeline1
@@ -53,17 +75,21 @@ jobs:
           TF_VAR_location: ${{ secrets.AZ_LOCATION }}
           TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
           TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
+
       - name: 🌍 Extract Public IP
         run: |
           IP=$(terraform -chdir=infra/pipeline1 output -raw public_ip)
           echo "VM_IP=$IP" >> $GITHUB_ENV
           echo "ℹ️ Public IP: $IP"
+
       - name: 🕒 Wait for SSH Port
         run: sleep 30
+
       - name: 🔑 SSH Private Key Setup
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
           chmod 600 key.pem
+
       - name: 📦 Install Docker + Deploy All Containers
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<'EOF'
@@ -126,6 +152,25 @@ jobs:
               -e MODEL_PORT=8501 \
               streamlit-dashboard
           EOF
+
+      - name: 📧 Notify Pipeline Completion
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.sendgrid.net
+          server_port: 587
+          username: apikey
+          password: ${{ secrets.SENDGRID_API_KEY }}
+          subject: "🏁 Pipeline ${{ job.status }}: ${{ github.workflow }}"
+          body: |
+            Your pipeline has ${{ job.status }}!
+            - Status: ${{ job.status }}
+            - VM IP: ${{ env.VM_IP }}
+            - Streamlit Dashboard: http://${{ env.VM_IP }}:8502
+            - Grafana: http://${{ env.VM_IP }}:3000
+          to: ${{ secrets.SENDGRID_RECEIVER_EMAIL }}
+          from: ${{ secrets.SENDGRID_SENDER_EMAIL }}
+
       - name: ✅ Done
         run: |
           echo "🎉 VM is ready at ${{ env.VM_IP }}"
