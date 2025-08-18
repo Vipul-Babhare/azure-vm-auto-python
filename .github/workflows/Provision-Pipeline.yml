@@ -34,36 +34,22 @@ jobs:
         run: terraform init -input=false
         working-directory: infra/pipeline1
 
-      - name: Debug Secrets
-        run: |
-          echo "Resource Group Name: ${{ secrets.AZ_RG_NAME }}"
-          echo "Virtual Network Name: ${{ secrets.AZ_VNET_NAME }}"
-
       - name: 🔄 Import Existing Resources
         run: |
-          echo "Attempting to import resource group..."
-          terraform import -var-file="vars.tfvars" azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }} || {
-            echo "Failed to import resource group. Checking if it exists..."
-            az group exists --name ${{ secrets.AZ_RG_NAME }} || {
-              echo "Resource group does not exist."
-              exit 1
-            }
-          }
-
-          echo "Attempting to import virtual network..."
-          terraform import -var-file="vars.tfvars" azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }} || {
-            echo "Failed to import virtual network. Checking if it exists..."
-            az network vnet show --name ${{ secrets.AZ_VNET_NAME }} --resource-group ${{ secrets.AZ_RG_NAME }} || {
-              echo "Virtual network does not exist."
-              exit 1
-            }
-          }
+          terraform import azurerm_resource_group.rg /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }} || true
+          terraform import azurerm_virtual_network.vnet /subscriptions/${{ secrets.ARM_SUBSCRIPTION_ID }}/resourceGroups/${{ secrets.AZ_RG_NAME }}/providers/Microsoft.Network/virtualNetworks/${{ secrets.AZ_VNET_NAME }} || true
         working-directory: infra/pipeline1
         env:
           ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
+          TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
+          TF_VAR_location: ${{ secrets.AZ_LOCATION }}
+          TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
+          TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
 
       - name: 📌 Terraform Apply
         run: terraform apply -auto-approve
