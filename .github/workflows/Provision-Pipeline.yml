@@ -8,7 +8,7 @@ jobs:
     steps:
       - name: 📧 Notify Pipeline Start
         run: |
-          curl -X POST "https://prod-36.uksouth.logic.azure.com:443/workflows/0bfef807c13243b3807bd56c768d30e9/triggers/HTTP_Request/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FHTTP_ Međutim2Frun&sv=1.0&sig=29XQWAG_5olHQtPJrTFZFx_eL5QrcLLMS9o6wFjcFw0" \
+          curl -X POST "https://prod-36.uksouth.logic.azure.com:443/workflows/0bfef807c13243b3807bd56c768d30e9/triggers/HTTP_Request/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FHTTP_Request%2Frun&sv=1.0&sig=29XQWAG_5olHQtPJrTFZFx_eL5QrcLLMS9o6wFjcFw0" \
           -H "Content-Type: application/json" \
           -d '{"subject": "Pipeline Started", "body": "The pipeline has started!"}'
 
@@ -44,12 +44,6 @@ jobs:
           ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-          TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-          TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
-          TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
-          TF_VAR_location: ${{ secrets.AZ_LOCATION }}
-          TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
-          TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
 
       - name: 📌 Terraform Apply
         run: terraform apply -auto-approve
@@ -104,7 +98,7 @@ jobs:
               --network tfnet \
               -p 8082:8082 \
               -e JWT_SECRET_KEY=my-super-secret-key-123 \
-              -e TOKEN_EXPIRATION_HOURS=24 \
+              -e TOKEN_EXPIR5ION_HOURS=24 \
               token-generator-image
             cd ..
             cd token_validator
