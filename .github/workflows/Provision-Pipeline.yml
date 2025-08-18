@@ -20,7 +20,7 @@ jobs:
             - Repository: ${{ github.repository }}
             - Workflow: ${{ github.workflow }}
           to: ${{ secrets.SENDGRID_RECEIVER_EMAIL }}
-          from: ${{ secrets.SENDGRID_SENDER_EMAIL }}
+          from: vipul.babhare@inspirext.com
 
       - name: ⬇️ Checkout code
         uses: actions/checkout@v3
