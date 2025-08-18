@@ -7,20 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 📧 Notify Pipeline Start
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.sendgrid.net
-          server_port: 587
-          username: apikey
-          password: ${{ secrets.SENDGRID_API_KEY }}
-          subject: "🚀 Pipeline Started: ${{ github.workflow }}"
-          body: |
-            Your pipeline has started!
-            - Triggered by: ${{ github.actor }}
-            - Repository: ${{ github.repository }}
-            - Workflow: ${{ github.workflow }}
-          to: ${{ secrets.SENDGRID_RECEIVER_EMAIL }}
-          from: vipul.babhare@inspirext.com
+        run: |
+          curl -X POST "https://prod-36.uksouth.logic.azure.com:443/workflows/0bfef807c13243b3807bd56c768d30e9/triggers/HTTP_Request/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FHTTP_Request%2Frun&sv=1.0&sig=29XQWAG_5olHQtPJrTFZFx_eL5QrcLLMS9o6wFjcFw0" \
+          -H "Content-Type: application/json" \
+          -d '{"subject": "Pipeline Started", "body": "The pipeline has started!"}'
 
       - name: ⬇️ Checkout code
         uses: actions/checkout@v3
@@ -54,12 +44,6 @@ jobs:
           ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-          TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-          TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
-          TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
-          TF_VAR_location: ${{ secrets.AZ_LOCATION }}
-          TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
-          TF_VAR_vm_name: ${{ secrets.AZ_VM_NAME }}
 
       - name: 📌 Terraform Apply
         run: terraform apply -auto-approve
@@ -148,28 +132,18 @@ jobs:
               --name streamlit_dashboard \
               --network tfnet \
               -p 8502:8502 \
-              -e MODEL_HOST=Tf-serving \
+              -e MODEL_HOST=tf-serving \
               -e MODEL_PORT=8501 \
               streamlit-dashboard
           EOF
 
       - name: 📧 Notify Pipeline Completion
         if: always()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.sendgrid.net
-          server_port: 587
-          username: apikey
-          password: ${{ secrets.SENDGRID_API_KEY }}
-          subject: "🏁 Pipeline ${{ job.status }}: ${{ github.workflow }}"
-          body: |
-            Your pipeline has ${{ job.status }}!
-            - Status: ${{ job.status }}
-            - VM IP: ${{ env.VM_IP }}
-            - Streamlit Dashboard: http://${{ env.VM_IP }}:8502
-            - Grafana: http://${{ env.VM_IP }}:3000
-          to: ${{ secrets.SENDGRID_RECEIVER_EMAIL }}
-          from: ${{ secrets.SENDGRID_SENDER_EMAIL }}
+        run: |
+          STATUS="${{ job.status }}"
+          curl -X POST "https://prod-36.uksouth.logic.azure.com:443/workflows/0bfef807c13243b3807bd56c768d30e9/triggers/HTTP_Request/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FHTTP_Request%2Frun&sv=1.0&sig=29XQWAG_5olHQtPJrTFZFx_eL5QrcLLMS9o6wFjcFw0" \
+          -H "Content-Type: application/json" \
+          -d '{"subject": "Pipeline ''${STATUS}''", "body": "The pipeline has ''${STATUS}''!"}'
 
       - name: ✅ Done
         run: |
