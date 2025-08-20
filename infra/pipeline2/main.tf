@@ -9,6 +9,26 @@ variable "ssh_public_key" {
   description = "SSH Public Key for the temporary build VM"
 }
 
+variable "rg_name" {
+  type        = string
+  description = "Resource Group Name"
+}
+
+variable "vnet_name" {
+  type        = string
+  description = "Virtual Network Name"
+}
+
+variable "subnet_name" {
+  type        = string
+  description = "Subnet Name"
+}
+
+variable "nsg_name" {
+  type        = string
+  description = "Network Security Group Name"
+}
+
 # Unique suffix per pipeline run
 resource "random_string" "suffix" {
   length  = 6
@@ -18,22 +38,22 @@ resource "random_string" "suffix" {
 
 # --- Reference existing infrastructure from provision pipeline ---
 data "azurerm_resource_group" "rg" {
-  name = "test-vm-groupterraf"
+  name = var.rg_name
 }
 
 data "azurerm_virtual_network" "vnet" {
-  name                = "test-vnet"
+  name                = var.vnet_name
   resource_group_name = data.azurerm_resource_group.rg.name
 }
 
 data "azurerm_subnet" "subnet" {
-  name                 = "test-subnet"
+  name                 = var.subnet_name
   virtual_network_name = data.azurerm_virtual_network.vnet.name
   resource_group_name  = data.azurerm_resource_group.rg.name
 }
 
 data "azurerm_network_security_group" "nsg" {
-  name                = "test-nsg"
+  name                = var.nsg_name
   resource_group_name = data.azurerm_resource_group.rg.name
 }
 

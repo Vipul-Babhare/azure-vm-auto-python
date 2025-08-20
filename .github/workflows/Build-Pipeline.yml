@@ -1,56 +1,49 @@
 name: 🚀 Build-Pipeline
-
 on:
   workflow_dispatch:
-
 jobs:
   deploy-and-train:
     runs-on: ubuntu-latest
-
     steps:
     - name: ⬇️ Checkout repo
       uses: actions/checkout@v3
-
     - name: ⚙️ Set up Terraform
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.6.6
-
     - name: 🔐 Azure Login using Service Principal
       run: |
         az login --service-principal \
           --username ${{ secrets.ARM_CLIENT_ID }} \
           --password ${{ secrets.ARM_CLIENT_SECRET }} \
           --tenant ${{ secrets.ARM_TENANT_ID }}
-
     - name: 📦 Terraform Init
       run: terraform init
-      working-directory: infra/pipeline2   # ✅ Changed to pipeline2
-
+      working-directory: infra/pipeline2
     - name: 📌 Terraform Apply
       run: terraform apply -auto-approve
-      working-directory: infra/pipeline2   # ✅ Changed to pipeline2
+      working-directory: infra/pipeline2
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
         TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
-
+        TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
+        TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
+        TF_VAR_subnet_name: ${{ secrets.AZ_SUBNET_NAME }}
+        TF_VAR_nsg_name: ${{ secrets.AZ_NSG_NAME }}
     - name: 🌍 Extract Public IP
       run: |
-        IP=$(terraform -chdir=infra/pipeline2 output -raw public_ip)   # ✅ Changed to pipeline2
+        IP=$(terraform -chdir=infra/pipeline2 output -raw public_ip)
         echo "VM_IP=$IP" >> $GITHUB_ENV
         echo "✅ Public IP: $IP"
-
     - name: 🕒 Wait for SSH port (30s)
       run: sleep 30
-
     - name: 🔑 Setup SSH private key
       run: |
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
         chmod 600 key.pem
-
     - name: 🧲 Setup Python environment and train model
       run: |
         ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
@@ -62,7 +55,6 @@ jobs:
           pip3 install -r requirements.txt
           python3 main.py
         EOF
-
     - name: ⬆️ Auto-commit trained model & plots to GitHub
       run: |
         ssh -o StrictHostKeyChecking=no -i key.pem azureuser@${{ env.VM_IP }} <<EOF
@@ -74,13 +66,16 @@ jobs:
           git commit -m "✅ Auto-commit: trained model + plots"
           git push origin main || true
         EOF
-
     - name: 🧹 Destroy all temporary build resources
-      run: terraform destroy -auto-approve   # ✅ Destroys only pipeline2 resources
-      working-directory: infra/pipeline2     # ✅ Changed to pipeline2
+      run: terraform destroy -auto-approve
+      working-directory: infra/pipeline2
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
         TF_VAR_ssh_public_key: ${{ secrets.AZURE_SSH_PUBLIC_KEY }}
+        TF_VAR_rg_name: ${{ secrets.AZ_RG_NAME }}
+        TF_VAR_vnet_name: ${{ secrets.AZ_VNET_NAME }}
+        TF_VAR_subnet_name: ${{ secrets.AZ_SUBNET_NAME }}
+        TF_VAR_nsg_name: ${{ secrets.AZ_NSG_NAME }}
