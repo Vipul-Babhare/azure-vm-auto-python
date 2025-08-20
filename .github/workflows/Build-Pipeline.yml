@@ -5,6 +5,14 @@ jobs:
   deploy-and-train:
     runs-on: ubuntu-latest
     steps:
+    - name: 📧 Notify Pipeline Start
+      run: |
+        curl -X POST "${{ secrets.LOGIC_APP_BUILD_ENDPOINT }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "subject": "Build Pipeline Started",
+            "body": "The build pipeline has started! 🚀"
+          }'
     - name: ⬇️ Checkout repo
       uses: actions/checkout@v3
     - name: ⚙️ Set up Terraform
@@ -66,6 +74,16 @@ jobs:
           git commit -m "✅ Auto-commit: trained model + plots"
           git push origin main || true
         EOF
+    - name: 📧 Notify Pipeline Completion
+      if: always()
+      run: |
+        STATUS="${{ job.status }}"
+        curl -X POST "${{ secrets.LOGIC_APP_BUILD_ENDPOINT }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "subject": "Build Pipeline ''${STATUS}''",
+            "body": "The build pipeline has ''${STATUS}''! 📌\n\nVM IP: ${{ env.VM_IP }}"
+          }'
     - name: 🧹 Destroy all temporary build resources
       run: terraform destroy -auto-approve
       working-directory: infra/pipeline2
